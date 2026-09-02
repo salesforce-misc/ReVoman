@@ -8,6 +8,9 @@ plugins {
 
 allOpen { annotation("kotlinx.benchmark.State") }
 
+val consumerScorecardExecutable =
+  createConsumerScorecardExecutable(canBeConsumed = true, canBeResolved = false)
+
 benchmark {
   targets { register("main") }
   configurations {
@@ -29,6 +32,10 @@ benchmark {
       param("stepCount", "100", "500")
     }
   }
+}
+
+afterEvaluate {
+  artifacts.add(consumerScorecardExecutable.name, tasks.named("mainBenchmarkJar"))
 }
 
 fun BenchmarkConfiguration.commonProfile(

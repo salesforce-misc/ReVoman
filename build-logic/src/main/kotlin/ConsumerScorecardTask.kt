@@ -5,9 +5,18 @@ import org.gradle.api.tasks.JavaExec
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.Optional
 import org.gradle.api.tasks.TaskAction
+import org.gradle.concurrent.ParallelismConfiguration
 import org.gradle.process.CommandLineArgumentProvider
+import javax.inject.Inject
 
 abstract class ConsumerScorecardTask : JavaExec() {
+    @get:Inject
+    protected abstract val parallelismConfiguration: ParallelismConfiguration
+
+    @get:Input
+    val gradleMaxWorkers: Int
+        get() = parallelismConfiguration.maxWorkerCount
+
     @get:Input
     @get:Optional
     abstract val runtimeValidation: Property<String>
@@ -34,6 +43,7 @@ abstract class ConsumerScorecardTask : JavaExec() {
             )
         }
 
+        args("--gradle-max-workers", gradleMaxWorkers.toString())
         super.exec()
     }
 
@@ -51,7 +61,6 @@ class ConsumerScorecardArguments(
     @get:Input val daemonRuntimeVersion: Provider<String>,
     @get:Input val daemonVendor: Provider<String>,
     @get:Input val daemonVmName: Provider<String>,
-    @get:Input val maxWorkers: Provider<Int>,
     @get:Input val libraryVersion: Provider<String>,
     @get:Input @get:Optional val runtimeValidation: Provider<String>,
     @get:Input val allowedDirtyPaths: Provider<List<String>>,
@@ -74,8 +83,6 @@ class ConsumerScorecardArguments(
             daemonVendor.get(),
             "--gradle-daemon-vm-name",
             daemonVmName.get(),
-            "--gradle-max-workers",
-            maxWorkers.get().toString(),
             "--library-version",
             libraryVersion.get(),
             "--runtime-validation",

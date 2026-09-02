@@ -13,15 +13,14 @@ dependencies {
 
 application { mainClass.set("com.salesforce.revoman.benchmark.reporting.MainKt") }
 
-val consumerScorecardExecutable = configurations.create("consumerScorecardExecutable") {
-  isCanBeConsumed = false
-  isCanBeResolved = true
-  attributes {
-    attribute(Category.CATEGORY_ATTRIBUTE, objects.named(Category.LIBRARY))
-    attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage.JAVA_RUNTIME))
-    attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(LibraryElements.JAR))
-    attribute(Bundling.BUNDLING_ATTRIBUTE, objects.named(Bundling.SHADOWED))
-  }
+val consumerScorecardExecutable =
+  createConsumerScorecardExecutable(canBeConsumed = false, canBeResolved = true)
+
+dependencies {
+  add(
+    consumerScorecardExecutable.name,
+    project(path = ":benchmarks", configuration = CONSUMER_SCORECARD_EXECUTABLE),
+  )
 }
 
 val javaToolchainService = extensions.getByType<JavaToolchainService>()
@@ -43,13 +42,12 @@ val scorecardDaemonJavaFeature = providers.provider { Runtime.version().feature(
 val scorecardDaemonRuntimeVersion = providers.systemProperty("java.runtime.version")
 val scorecardDaemonVendor = providers.systemProperty("java.vendor")
 val scorecardDaemonVmName = providers.systemProperty("java.vm.name")
-val scorecardMaxWorkers = providers.provider { gradle.startParameter.maxWorkerCount }
 val scorecardLibraryVersion = providers.gradleProperty("revoman.version")
 val scorecardRuntimeValidation = providers.gradleProperty("scorecardRuntimeValidation")
 val scorecardAllowedDirtyPaths =
   providers
     .gradleProperty("scorecardAllowedDirty")
-    .map { value -> value.split(',').map(String::trim).filter(String::isNotEmpty) }
+    .map { value -> value.split(',').asSequence().map(String::trim).filter(String::isNotEmpty).toList() }
     .orElse(emptyList())
 
 tasks.register<ConsumerScorecardTask>("runConsumerScorecard") {
@@ -70,7 +68,6 @@ tasks.register<ConsumerScorecardTask>("runConsumerScorecard") {
   inputs.property("scorecard.gradleDaemonRuntimeVersion", scorecardDaemonRuntimeVersion)
   inputs.property("scorecard.gradleDaemonVendor", scorecardDaemonVendor)
   inputs.property("scorecard.gradleDaemonVmName", scorecardDaemonVmName)
-  inputs.property("scorecard.gradleMaxWorkers", scorecardMaxWorkers)
   inputs.property("scorecard.libraryVersion", scorecardLibraryVersion)
   inputs.property("scorecard.runtimeValidation", scorecardRuntimeValidation.orElse(""))
   inputs.property("scorecard.allowedDirtyPaths", scorecardAllowedDirtyPaths)
@@ -85,7 +82,6 @@ tasks.register<ConsumerScorecardTask>("runConsumerScorecard") {
       daemonRuntimeVersion = scorecardDaemonRuntimeVersion,
       daemonVendor = scorecardDaemonVendor,
       daemonVmName = scorecardDaemonVmName,
-      maxWorkers = scorecardMaxWorkers,
       libraryVersion = scorecardLibraryVersion,
       runtimeValidation = scorecardRuntimeValidation,
       allowedDirtyPaths = scorecardAllowedDirtyPaths,

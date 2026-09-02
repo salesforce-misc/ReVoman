@@ -10,6 +10,7 @@ import org.gradle.testkit.runner.GradleRunner
 import org.gradle.testkit.runner.TaskOutcome
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.zip.ZipFile
 
 class ConsumerScorecardPluginFunctionalTest :
     FunSpec({
@@ -28,9 +29,8 @@ class ConsumerScorecardPluginFunctionalTest :
 
                 result.output shouldContain "SCORECARD_TYPE=JavaExec"
                 result.output shouldContain "SCORECARD_LAUNCHER=25"
-                result.output shouldContain "SCORECARD_DEPENDENCY=:benchmarks:fakeConsumerScorecardJar"
-                result.output shouldContain "SCORECARD_ARG=--gradle-max-workers"
-                result.output shouldContain "SCORECARD_ARG=3"
+                result.output shouldContain "SCORECARD_DEPENDENCY=:benchmarks:mainBenchmarkJar"
+                result.output shouldContain "SCORECARD_MAX_WORKERS=3"
                 result.output shouldContain "SCORECARD_ARG=--library-version"
                 result.output shouldContain "SCORECARD_ARG=9.9.9"
                 result.output shouldContain "SCORECARD_ARG=--allowed-dirty-path"
@@ -44,12 +44,57 @@ class ConsumerScorecardPluginFunctionalTest :
                 result.output shouldContain "SCORECARD_INPUT=scorecard.gradleDaemonRuntimeVersion"
                 result.output shouldContain "SCORECARD_INPUT=scorecard.gradleDaemonVendor"
                 result.output shouldContain "SCORECARD_INPUT=scorecard.gradleDaemonVmName"
-                result.output shouldContain "SCORECARD_INPUT=scorecard.gradleMaxWorkers"
+                result.output shouldContain "SCORECARD_INPUT=gradleMaxWorkers"
                 result.output shouldContain "SCORECARD_INPUT=scorecard.libraryVersion"
                 result.output shouldContain "SCORECARD_INPUT=scorecard.runtimeValidation"
                 result.output shouldContain "SCORECARD_INPUT=scorecard.allowedDirtyPaths"
-                result.task(":benchmarks:fakeConsumerScorecardJar")?.outcome shouldBe TaskOutcome.SUCCESS
+                result.task(":benchmarks:mainBenchmarkJar")?.outcome shouldBe TaskOutcome.SUCCESS
                 fixture.childMarker.toFile().exists() shouldBe false
+            }
+        }
+
+        test("real convention plugins expose the fixed profile and executable artifact bridge") {
+            ScorecardFixture.create().use { fixture ->
+                val result =
+                    fixture.build(
+                        ":benchmarks:inspectBenchmarkConventions",
+                        ":benchmark-reporting:inspectConsumerScorecardBridge",
+                    )
+
+                result.output shouldContain
+                        "PROFILE_consumerScorecard=avgt|ms|csv|20|10|1000|ms|5|" +
+                        "com.salesforce.revoman.benchmark.ConsumerJourneyBenchmark.*|{}"
+                result.output shouldContain "PROFILE_smoke=avgt|ms|csv|2|2|250|ms|1||{}"
+                result.output shouldContain "PROFILE_final=avgt|ms|csv|20|10|1000|ms|5||{}"
+                result.output shouldContain
+                        "PROFILE_collectionScaleFinal=avgt|ms|csv|20|10|1000|ms|5|" +
+                        "com.salesforce.revoman.benchmark.CollectionScaleRevUpBenchmark.revUpByStepCount|" +
+                        "{stepCount=[100, 500]}"
+                result.output shouldContain "PRODUCER_CAN_BE_CONSUMED=true"
+                result.output shouldContain "PRODUCER_CAN_BE_RESOLVED=false"
+                result.output shouldContain "PRODUCER_ARTIFACTS=1"
+                result.output shouldContain "PRODUCER_TASK=:benchmarks:mainBenchmarkJar"
+                result.output shouldContain "REPORTING_CAN_BE_CONSUMED=false"
+                result.output shouldContain "REPORTING_CAN_BE_RESOLVED=true"
+                result.output shouldContain "REPORTING_FILES=1"
+                result.output shouldContain "REPORTING_DEPENDENCY=:benchmarks"
+                result.output shouldContain "COMPILE_DEPENDENCY=:benchmarks=false"
+                listOf(
+                    "org.gradle.category=library",
+                    "org.gradle.usage=java-runtime",
+                    "org.gradle.libraryelements=jar",
+                    "org.gradle.dependency.bundling=shadowed",
+                ).forEach { attribute ->
+                    result.output shouldContain "PRODUCER_ATTRIBUTE=$attribute"
+                    result.output shouldContain "REPORTING_ATTRIBUTE=$attribute"
+                }
+
+                val benchmarkJar = Path.of(fixture.bridgeJar.toFile().readText().trim())
+                benchmarkJar.shouldExist()
+                ZipFile(benchmarkJar.toFile()).use { archive ->
+                    (archive.getEntry("org/openjdk/jmh/Main.class") != null) shouldBe true
+                    (archive.getEntry("fixture/FixtureBenchmark.class") != null) shouldBe true
+                }
             }
         }
 
@@ -74,6 +119,55 @@ class ConsumerScorecardPluginFunctionalTest :
                     )
 
                 result.output shouldContain "Configuration cache entry stored"
+            }
+        }
+
+        test("configuration cache reuse observes max workers changing from three to one") {
+            ScorecardFixture.create().use { fixture ->
+                fixture.build(":benchmarks:mainBenchmarkJar")
+                val rejected =
+                    fixture.buildAndFail(
+                        ":benchmark-reporting:runConsumerScorecard",
+                        "--configuration-cache",
+                        "--max-workers=3",
+                        "-PscorecardRuntimeValidation=${fixture.runtimeValidation}",
+                    )
+                rejected.output shouldContain "Scorecard requires exactly one worker; found 3"
+                rejected.output shouldContain "Configuration cache entry stored"
+
+                val accepted =
+                    fixture.build(
+                        ":benchmark-reporting:runConsumerScorecard",
+                        "--configuration-cache",
+                        "--max-workers=1",
+                        "-PscorecardRuntimeValidation=${fixture.runtimeValidation}",
+                    )
+                accepted.output shouldContain "Reusing configuration cache"
+                fixture.childMarker.toFile().readText() shouldContain "--gradle-max-workers=1"
+            }
+        }
+
+        test("configuration cache reuse observes max workers changing from one to three") {
+            ScorecardFixture.create().use { fixture ->
+                fixture.build(":benchmarks:mainBenchmarkJar")
+                fixture.build(
+                    ":benchmark-reporting:runConsumerScorecard",
+                    "--configuration-cache",
+                    "--max-workers=1",
+                    "-PscorecardRuntimeValidation=${fixture.runtimeValidation}",
+                )
+                Files.delete(fixture.childMarker)
+
+                val rejected =
+                    fixture.buildAndFail(
+                        ":benchmark-reporting:runConsumerScorecard",
+                        "--configuration-cache",
+                        "--max-workers=3",
+                        "-PscorecardRuntimeValidation=${fixture.runtimeValidation}",
+                    )
+                rejected.output shouldContain "Reusing configuration cache"
+                rejected.output shouldContain "Scorecard requires exactly one worker; found 3"
+                fixture.childMarker.toFile().exists() shouldBe false
             }
         }
 
@@ -111,7 +205,7 @@ class ConsumerScorecardPluginFunctionalTest :
                         "-PscorecardAllowedDirty=.idea/kotlinc.xml,.idea/misc.xml",
                     )
 
-                result.task(":benchmarks:fakeConsumerScorecardJar")?.outcome shouldBe TaskOutcome.SUCCESS
+                result.task(":benchmarks:mainBenchmarkJar")?.outcome shouldBe TaskOutcome.SUCCESS
                 fixture.childMarker.shouldExist()
                 fixture.fakeCsv.shouldExist()
                 fixture.fakeCsv.toFile().readText() shouldContain "Benchmark,Mode,Threads,Samples,Score"
@@ -148,17 +242,26 @@ private class ScorecardFixture private constructor(val root: Path) : AutoCloseab
     val runtimeValidation: Path = root.resolve("runtime-validation.json")
     val childMarker: Path = root.resolve("build/fake-child.marker")
     val fakeCsv: Path = root.resolve("build/fake-results.csv")
+    val bridgeJar: Path = root.resolve("build/bridge-jar.path")
 
     fun build(vararg arguments: String): BuildResult = runner(arguments.toList()).build()
 
     fun buildAndFail(vararg arguments: String): BuildResult = runner(arguments.toList()).buildAndFail()
 
-    private fun runner(arguments: List<String>): GradleRunner =
-        GradleRunner.create()
+    private fun runner(arguments: List<String>): GradleRunner {
+        val defaultWorkerArgument =
+            when {
+                arguments.any { value -> value.startsWith("--max-workers") } -> emptyList()
+                else -> listOf("--max-workers=1")
+            }
+        return GradleRunner.create()
             .withProjectDir(root.toFile())
-            .withTestKitDir(root.resolve(".test-kit").toFile())
+            .withTestKitDir(
+                Path.of(System.getProperty("user.dir")).resolve("build/test-kit").toFile()
+            )
             .withPluginClasspath()
-            .withArguments(listOf("--stacktrace") + arguments)
+            .withArguments(listOf("--stacktrace") + defaultWorkerArgument + arguments)
+    }
 
     override fun close() {
         Files.walk(root).use { paths ->
@@ -205,28 +308,68 @@ private class ScorecardFixture private constructor(val root: Path) : AutoCloseab
         write("gradle.properties", "revoman.version=9.9.9\n")
         write("build.gradle.kts", "")
         write("runtime-validation.json", "{}\n")
-        write("benchmarks/payload.txt", "fake benchmark payload\n")
         write(
             "benchmarks/build.gradle.kts",
             """
-      plugins { base }
+      import kotlinx.benchmark.gradle.BenchmarksExtension
 
-      val consumerScorecardExecutable = configurations.create("consumerScorecardExecutable") {
-        isCanBeConsumed = true
-        isCanBeResolved = false
-        attributes {
-          attribute(Category.CATEGORY_ATTRIBUTE, objects.named(Category.LIBRARY))
-          attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage.JAVA_RUNTIME))
-          attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(LibraryElements.JAR))
-          attribute(Bundling.BUNDLING_ATTRIBUTE, objects.named(Bundling.SHADOWED))
+      plugins { id("revoman.benchmarks") }
+
+      dependencies {
+        implementation(libs.kotlinx.benchmark.runtime)
+      }
+
+      val benchmarkProfiles = extensions.getByType<BenchmarksExtension>().configurations
+      val consumerScorecardExecutable = configurations.named("consumerScorecardExecutable")
+
+      tasks.register("inspectBenchmarkConventions") {
+        doLast {
+          listOf("consumerScorecard", "smoke", "final", "collectionScaleFinal").forEach { name ->
+            val profile = benchmarkProfiles.getByName(name)
+            println(
+              "PROFILE_${'$'}name=" +
+                listOf(
+                  profile.mode,
+                  profile.outputTimeUnit,
+                  profile.reportFormat,
+                  profile.iterations,
+                  profile.warmups,
+                  profile.iterationTime,
+                  profile.iterationTimeUnit,
+                  profile.advanced["jvmForks"],
+                  profile.includes.joinToString(),
+                  profile.params,
+                ).joinToString("|")
+            )
+          }
+          val producer = consumerScorecardExecutable.get()
+          println("PRODUCER_CAN_BE_CONSUMED=${'$'}{producer.isCanBeConsumed}")
+          println("PRODUCER_CAN_BE_RESOLVED=${'$'}{producer.isCanBeResolved}")
+          println("PRODUCER_ARTIFACTS=${'$'}{producer.outgoing.artifacts.size}")
+          producer.attributes.keySet().sortedBy { it.name }.forEach { attribute ->
+            println("PRODUCER_ATTRIBUTE=${'$'}{attribute.name}=${'$'}{producer.attributes.getAttribute(attribute)}")
+          }
+          producer.outgoing.artifacts.flatMap { artifact ->
+            artifact.buildDependencies.getDependencies(this)
+          }.sortedBy { it.path }.forEach { println("PRODUCER_TASK=${'$'}{it.path}") }
         }
       }
-      val fakeConsumerScorecardJar = tasks.register<Jar>("fakeConsumerScorecardJar") {
-        archiveFileName = "fake-consumer-scorecard.jar"
-        destinationDirectory = layout.buildDirectory.dir("scorecard")
-        from("payload.txt")
+      """,
+        )
+        write(
+            "benchmarks/src/main/kotlin/FixtureBenchmark.kt",
+            """
+      package fixture
+
+      import kotlinx.benchmark.Benchmark
+      import kotlinx.benchmark.Scope
+      import kotlinx.benchmark.State
+
+      @State(Scope.Benchmark)
+      open class FixtureBenchmark {
+        @Benchmark
+        fun benchmark(): Int = 42
       }
-      artifacts.add(consumerScorecardExecutable.name, fakeConsumerScorecardJar)
       """,
         )
         write(
@@ -236,12 +379,6 @@ private class ScorecardFixture private constructor(val root: Path) : AutoCloseab
 
       val consumerScorecardExecutable = configurations.named("consumerScorecardExecutable")
       val javaToolchains = extensions.getByType<JavaToolchainService>()
-      dependencies {
-        add(
-          consumerScorecardExecutable.name,
-          project(path = ":benchmarks", configuration = "consumerScorecardExecutable"),
-        )
-      }
 
       providers.gradleProperty("scorecardTestJavaLauncher").orNull?.let { feature ->
         tasks.named<JavaExec>("runConsumerScorecard") {
@@ -252,11 +389,12 @@ private class ScorecardFixture private constructor(val root: Path) : AutoCloseab
       }
 
       tasks.register("inspectConsumerScorecard") {
-        dependsOn(":benchmarks:fakeConsumerScorecardJar")
+        dependsOn(consumerScorecardExecutable)
         doLast {
           val scorecard = tasks.named<JavaExec>("runConsumerScorecard").get()
           println("SCORECARD_TYPE=JavaExec")
           println("SCORECARD_LAUNCHER=${'$'}{scorecard.javaLauncher.get().metadata.languageVersion}")
+          println("SCORECARD_MAX_WORKERS=${'$'}{scorecard.inputs.properties.getValue("gradleMaxWorkers")}")
           scorecard.taskDependencies.getDependencies(scorecard).sortedBy { it.path }.forEach {
             println("SCORECARD_DEPENDENCY=${'$'}{it.path}")
           }
@@ -264,6 +402,33 @@ private class ScorecardFixture private constructor(val root: Path) : AutoCloseab
           scorecard.argumentProviders.flatMap { it.asArguments() }.forEach {
             println("SCORECARD_ARG=${'$'}it")
           }
+        }
+      }
+
+      tasks.register("inspectConsumerScorecardBridge") {
+        dependsOn(consumerScorecardExecutable)
+        doLast {
+          val reporting = consumerScorecardExecutable.get()
+          println("REPORTING_CAN_BE_CONSUMED=${'$'}{reporting.isCanBeConsumed}")
+          println("REPORTING_CAN_BE_RESOLVED=${'$'}{reporting.isCanBeResolved}")
+          println("REPORTING_FILES=${'$'}{reporting.files.size}")
+          reporting.dependencies.forEach { dependency ->
+            println(
+              "REPORTING_DEPENDENCY=" +
+                (dependency as org.gradle.api.artifacts.ProjectDependency).path
+            )
+          }
+          val compileDependencies = configurations.getByName("compileClasspath").dependencies
+          println(
+            "COMPILE_DEPENDENCY=:benchmarks=" +
+              compileDependencies.any { it.name == "benchmarks" }
+          )
+          reporting.attributes.keySet().sortedBy { it.name }.forEach { attribute ->
+            println("REPORTING_ATTRIBUTE=${'$'}{attribute.name}=${'$'}{reporting.attributes.getAttribute(attribute)}")
+          }
+          val bridgePath = rootProject.layout.buildDirectory.file("bridge-jar.path").get().asFile
+          bridgePath.parentFile.mkdirs()
+          bridgePath.writeText(reporting.singleFile.absolutePath)
         }
       }
       """,
@@ -292,6 +457,11 @@ private class ScorecardFixture private constructor(val root: Path) : AutoCloseab
           }
           if (!Files.isRegularFile(Path.of(values.get("--runtime-validation")))) {
             throw new IllegalStateException("runtime validation was not supplied");
+          }
+          int maxWorkers = Integer.parseInt(values.get("--gradle-max-workers"));
+          if (maxWorkers != 1) {
+            throw new IllegalStateException(
+                "Scorecard requires exactly one worker; found " + maxWorkers);
           }
           Path buildDirectory = projectRoot.resolve("build");
           Files.createDirectories(buildDirectory);
