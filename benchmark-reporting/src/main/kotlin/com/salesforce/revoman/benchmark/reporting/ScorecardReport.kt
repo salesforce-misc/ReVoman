@@ -35,15 +35,15 @@ internal data class ScorecardDocument(
   val frame: DataFrame<ScorecardRowSchema>,
 )
 
-private const val SCORECARD_SELECTOR =
+internal const val SCORECARD_SELECTOR =
   "^com\\.salesforce\\.revoman\\.benchmark\\.ConsumerJourneyBenchmark\\..*$"
-private const val SCORECARD_STUDY_ID = "consumer-performance-scorecard"
-private const val EXPECTED_JAVA_FEATURE = 25
+internal const val SCORECARD_STUDY_ID = "consumer-performance-scorecard"
+internal const val EXPECTED_JAVA_FEATURE = 25
 private const val EXPECTED_SAMPLES = 100
 
-private val expectedProfile = ScorecardProfile("avgt", "ms/op", 1, 5, 10, 20, 1, 99.9)
+internal val expectedScorecardProfile = ScorecardProfile("avgt", "ms/op", 1, 5, 10, 20, 1, 99.9)
 
-private val scorecardRows =
+internal val expectedScorecardRows =
   listOf(
     ExpectedScorecardRow(
       "com.salesforce.revoman.benchmark.ConsumerJourneyBenchmark.postmanV2TenStepRevUp",
@@ -95,10 +95,10 @@ internal fun buildScorecard(manifestPath: Path): ScorecardDocument {
   require(json.getValue("benchmarkSelector").jsonPrimitive.content == SCORECARD_SELECTOR) {
     "Scorecard benchmarkSelector does not match the fixed selector"
   }
-  require(json.expectedRows() == scorecardRows) {
+  require(json.expectedRows() == expectedScorecardRows) {
     "Manifest expectedRows do not match the fixed scorecard descriptors"
   }
-  require(json.getValue("profile").jsonObject.scorecardProfile() == expectedProfile) {
+  require(json.getValue("profile").jsonObject.scorecardProfile() == expectedScorecardProfile) {
     "Manifest profile does not match the fixed scorecard profile"
   }
   require(json.getValue("libraryVersion").jsonPrimitive.content.isNotBlank()) {
@@ -138,24 +138,28 @@ internal fun buildScorecard(manifestPath: Path): ScorecardDocument {
     resolve(runDir, json.getValue("raw").jsonObject.getValue("results").jsonPrimitive.content)
   val measuredRows = readJmh(resultsPath, Regex(".*")).toJmhRows()
   require(
-    scorecardRows.all { expected -> measuredRows.any { it.benchmark == expected.benchmark } }
+    expectedScorecardRows.all { expected ->
+      measuredRows.any { it.benchmark == expected.benchmark }
+    }
   ) {
     "CSV is missing an expected scorecard benchmark"
   }
   require(measuredRows.map(JmhRow::benchmark).distinct().size == measuredRows.size) {
     "CSV contains a duplicate scorecard benchmark"
   }
-  require(measuredRows.all { row -> scorecardRows.any { it.benchmark == row.benchmark } }) {
+  require(measuredRows.all { row -> expectedScorecardRows.any { it.benchmark == row.benchmark } }) {
     "CSV contains an unexpected scorecard benchmark"
   }
-  require(measuredRows.all { it.mode == expectedProfile.mode }) { "Scorecard mode must be avgt" }
-  require(measuredRows.all { it.threads == expectedProfile.threads }) {
+  require(measuredRows.all { it.mode == expectedScorecardProfile.mode }) {
+    "Scorecard mode must be avgt"
+  }
+  require(measuredRows.all { it.threads == expectedScorecardProfile.threads }) {
     "Scorecard threads must be one"
   }
   require(measuredRows.all { it.samples == EXPECTED_SAMPLES }) {
     "Scorecard samples must be 100"
   }
-  require(measuredRows.all { it.unit == expectedProfile.unit }) {
+  require(measuredRows.all { it.unit == expectedScorecardProfile.unit }) {
     "Scorecard unit must be ms/op"
   }
   require(measuredRows.all { it.parameters.isEmpty() }) {
@@ -163,14 +167,14 @@ internal fun buildScorecard(manifestPath: Path): ScorecardDocument {
   }
   require(measuredRows.all { it.score >= 0.0 }) { "Scorecard score must not be negative" }
   val measured = measuredRows.associateBy(JmhRow::benchmark)
-  val rows = scorecardRows.map { expected -> measured.getValue(expected.benchmark) }
+  val rows = expectedScorecardRows.map { expected -> measured.getValue(expected.benchmark) }
   return ScorecardDocument(
     runDir,
     json.getValue("studyId").jsonPrimitive.content,
     json.getValue("runId").jsonPrimitive.content,
     dataFrameOf(
-        "journey" to scorecardRows.map { it.journey },
-        "workload" to scorecardRows.map { it.workload },
+        "journey" to expectedScorecardRows.map { it.journey },
+        "workload" to expectedScorecardRows.map { it.workload },
         "score" to rows.map { it.score },
         "scoreError99_9" to rows.map { it.scoreError },
         "unit" to rows.map { it.unit },
