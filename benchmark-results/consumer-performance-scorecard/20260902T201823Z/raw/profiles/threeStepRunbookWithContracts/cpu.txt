@@ -1,0 +1,30 @@
+
+                                           Java Methods that Execute the Most
+
+Method                                                                                                  Samples Percent
+------------------------------------------------------------------------------------------------------- ------- -------
+libjvm.so.IndexSetIterator::advance_and_next()                                                               70   2.32%
+libjvm.so.PhaseChaitin::elide_copy()                                                                         61   2.02%
+libjvm.so.PhaseChaitin::Split()                                                                              59   1.96%
+libjvm.so.G1ParScanThreadState::trim_queue_to_threshold()                                                    51   1.69%
+libjvm.so.PhaseChaitin::gather_lrg_masks()                                                                   45   1.49%
+libjvm.so.PhaseChaitin::interfere_with_live()                                                                35   1.16%
+libjvm.so.PhaseChaitin::post_allocate_copy_removal()                                                         35   1.16%
+libc.so.6.__memset_evex_unaligned_erms()                                                                     31   1.03%
+libjvm.so.PhaseIdealLoop::build_loop_late()                                                                  27   0.90%
+libjvm.so.PhaseLive::compute()                                                                               26   0.86%
+libjvm.so.PhaseIdealLoop::build_loop_early()                                                                 26   0.86%
+ld-linux-x86-64.so.2.__tls_get_addr()                                                                        25   0.83%
+libjvm.so.PhaseChaitin::build_ifg_physical()                                                                 24   0.80%
+libjvm.so.PhaseIdealLoop::Dominators()                                                                       21   0.70%
+libjvm.so.resource_allocate_bytes()                                                                          21   0.70%
+libjvm.so.SymbolTable::do_lookup()                                                                           21   0.70%
+libjvm.so.Node::dominates()                                                                                  20   0.66%
+libjvm.so.Dict::Insert()                                                                                     19   0.63%
+libjvm.so.BarrierSetC2::compute_liveness_at_stubs()                                                          17   0.56%
+libjvm.so.Arena::contains()                                                                                  17   0.56%
+libjvm.so.InstanceKlass::find_method_index()                                                                 17   0.56%
+libc.so.6.__memmove_evex_unaligned_erms()                                                                    16   0.53%
+libjvm.so.PhaseAggressiveCoalesce::insert_copies()                                                           16   0.53%
+libjvm.so.PhaseIFG::effective_degree()                                                                       16   0.53%
+libjvm.so.Type::Initialize_shared(Compile*)::{lambda(void const*, void const*)#1}::_FUN()                    15   0.50%

@@ -1,0 +1,6 @@
+
+                               Contention by Site
+
+StackTrace                                            Count      Avg.      Max.
+----------------------------------------------------- ----- --------- ---------
+.no_Java_frame()                                          1 0.0326 ms 0.0326 ms

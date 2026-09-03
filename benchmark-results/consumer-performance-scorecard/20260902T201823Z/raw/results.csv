@@ -1,0 +1,8 @@
+"Benchmark","Mode","Threads","Samples","Score","Score Error (99.9%)","Unit"
+"com.salesforce.revoman.benchmark.ConsumerJourneyBenchmark.postmanV2TenStepRevUp","avgt",1,100,0.133919,0.004176,"ms/op"
+"com.salesforce.revoman.benchmark.ConsumerJourneyBenchmark.threeKickEnvironmentHandoff","avgt",1,100,510.023847,17.622360,"ms/op"
+"com.salesforce.revoman.benchmark.ConsumerJourneyBenchmark.threeStepRunbookWithContracts","avgt",1,100,487.853741,19.494099,"ms/op"
+"com.salesforce.revoman.benchmark.ConsumerJourneyBenchmark.v3HundredStepRevUp","avgt",1,100,4.080435,0.128335,"ms/op"
+"com.salesforce.revoman.benchmark.ConsumerJourneyBenchmark.v3TenStepRevUp","avgt",1,100,0.590056,0.014865,"ms/op"
+"com.salesforce.revoman.benchmark.ConsumerJourneyBenchmark.v3TenStepScriptedRevUp","avgt",1,100,176.355577,8.877473,"ms/op"
+"com.salesforce.revoman.benchmark.ConsumerJourneyBenchmark.verboseHundredStepRundownJson","avgt",1,100,0.327387,0.008782,"ms/op"

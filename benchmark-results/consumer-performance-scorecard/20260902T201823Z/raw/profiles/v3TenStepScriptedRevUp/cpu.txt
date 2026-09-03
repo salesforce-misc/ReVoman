@@ -1,0 +1,30 @@
+
+                                           Java Methods that Execute the Most
+
+Method                                                                                                  Samples Percent
+------------------------------------------------------------------------------------------------------- ------- -------
+libjvm.so.IndexSetIterator::advance_and_next()                                                               80   3.01%
+libjvm.so.PhaseLive::compute()                                                                               51   1.92%
+libjvm.so.PhaseChaitin::Split()                                                                              43   1.62%
+libjvm.so.PhaseChaitin::elide_copy()                                                                         36   1.35%
+libjvm.so.PhaseChaitin::gather_lrg_masks()                                                                   36   1.35%
+libjvm.so.G1ParScanThreadState::trim_queue_to_threshold()                                                    32   1.20%
+ld-linux-x86-64.so.2.__tls_get_addr()                                                                        30   1.13%
+libjvm.so.PhaseIdealLoop::build_loop_late()                                                                  29   1.09%
+libjvm.so.PhaseIdealLoop::build_loop_early()                                                                 29   1.09%
+./usr/lib/x86_64-linux-gnu/libz.so.1.3()                                                                     28   1.05%
+libjvm.so.DebugInformationRecorder::find_sharable_decode_offset()                                            22   0.83%
+libjvm.so.Compile::identify_useful_nodes()                                                                   21   0.79%
+libjvm.so.PhaseChaitin::interfere_with_live()                                                                21   0.79%
+libjvm.so.PhaseChaitin::build_ifg_physical()                                                                 21   0.79%
+libc.so.6.__memset_evex_unaligned_erms()                                                                     21   0.79%
+libc.so.6.__memmove_evex_unaligned_erms()                                                                    18   0.68%
+libjvm.so.LinearScan::build_intervals()                                                                      17   0.64%
+libjvm.so.InstanceKlass::find_method_index()                                                                 17   0.64%
+libjvm.so.PhaseChaitin::post_allocate_copy_removal()                                                         16   0.60%
+libjvm.so.NodeHash::hash_find_insert()                                                                       14   0.53%
+libjvm.so.PhaseIFG::remove_node()                                                                            14   0.53%
+libjvm.so.PhaseOutput::BuildOopMaps()                                                                        14   0.53%
+libjvm.so.SymbolTable::do_lookup()                                                                           14   0.53%
+libjvm.so.BarrierSetC2::compute_liveness_at_stubs()                                                          13   0.49%
+libjvm.so.Dict::Insert()                                                                                     13   0.49%

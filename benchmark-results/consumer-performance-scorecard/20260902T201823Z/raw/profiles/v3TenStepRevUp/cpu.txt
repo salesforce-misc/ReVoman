@@ -1,0 +1,30 @@
+
+                                           Java Methods that Execute the Most
+
+Method                                                                                                  Samples Percent
+------------------------------------------------------------------------------------------------------- ------- -------
+./usr/lib/x86_64-linux-gnu/libz.so.1.3()                                                                      7   1.74%
+libjvm.so.resource_allocate_bytes()                                                                           6   1.49%
+libz.so.1.3.inflate()                                                                                         6   1.49%
+libjvm.so.PhaseChaitin::interfere_with_live()                                                                 5   1.24%
+libc.so.6.__memset_evex_unaligned_erms()                                                                      5   1.24%
+ld-linux-x86-64.so.2.__tls_get_addr()                                                                         5   1.24%
+libjvm.so.ciObjectFactory::get_metadata()                                                                     4   1.00%
+libc.so.6._int_malloc()                                                                                       4   1.00%
+libjvm.so.PhaseChaitin::elide_copy()                                                                          4   1.00%
+libjvm.so.PhaseChaitin::gather_lrg_masks()                                                                    4   1.00%
+libjvm.so.PhaseIdealLoop::build_loop_late()                                                                   4   1.00%
+libjvm.so.SymbolTable::lookup_shared()                                                                        4   1.00%
+libjvm.so.Instruction::as_Constant()                                                                          3   0.75%
+java.util.Arrays.copyOf(byte[], int)                                                                          3   0.75%
+libjvm.so.Matcher::Label_Root()                                                                               3   0.75%
+libjvm.so.PhaseIdealLoop::build_loop_tree()                                                                   3   0.75%
+libc.so.6.__futex_abstimed_wait_cancelable64()                                                                3   0.75%
+libc.so.6.__memmove_evex_unaligned_erms()                                                                     3   0.75%
+libjvm.so.PhaseChaitin::Split()                                                                               3   0.75%
+libjvm.so.DebugInformationRecorder::find_sharable_decode_offset()                                             3   0.75%
+libjvm.so.LinearScan::assign_reg_num()                                                                        3   0.75%
+libjvm.so.ClassVerifier::verify_method()                                                                      3   0.75%
+libjvm.so.PhaseIdealLoop::build_loop_late_post_work()                                                         3   0.75%
+libjvm.so.SymbolTable::do_lookup()                                                                            3   0.75%
+libjvm.so.State::DFA()                                                                                        2   0.50%
