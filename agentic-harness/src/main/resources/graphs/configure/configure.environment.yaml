@@ -1,0 +1,10 @@
+name: configure
+values:
+  - key: baseUrl
+    value: "http://127.0.0.1:0"
+  - key: accessToken
+    value: "local-dev-token"
+  - key: productCode
+    value: "SKU-1"
+  - key: quantity
+    value: "1"
