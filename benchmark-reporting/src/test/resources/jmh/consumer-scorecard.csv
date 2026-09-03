@@ -1,5 +1,6 @@
 Benchmark,Mode,Threads,Samples,Score,Score Error (99.9%),Unit
 com.salesforce.revoman.benchmark.ConsumerJourneyBenchmark.postmanV2TenStepRevUp,avgt,1,100,0.101234567890123,0.001234567890123,ms/op
+com.salesforce.revoman.benchmark.ConsumerJourneyBenchmark.postmanV2TenStepScriptedRevUp,avgt,1,100,0.151234567890123,0.001534567890123,ms/op
 com.salesforce.revoman.benchmark.ConsumerJourneyBenchmark.v3TenStepRevUp,avgt,1,100,0.202345678901234,0.002345678901234,ms/op
 com.salesforce.revoman.benchmark.ConsumerJourneyBenchmark.v3HundredStepRevUp,avgt,1,100,2.303456789012345,0.023456789012345,ms/op
 com.salesforce.revoman.benchmark.ConsumerJourneyBenchmark.v3TenStepScriptedRevUp,avgt,1,100,3.404567890123456,0.034567890123456,ms/op

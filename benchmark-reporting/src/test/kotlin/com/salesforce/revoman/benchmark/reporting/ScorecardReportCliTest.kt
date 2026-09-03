@@ -21,7 +21,7 @@ import org.jetbrains.kotlinx.dataframe.api.dataFrameOf
 @OptIn(kotlin.io.path.ExperimentalPathApi::class)
 class ScorecardReportCliTest :
   StringSpec({
-    "valid seven-row scorecard publishes all absolute reports in consumer order" {
+    "valid eight-row scorecard publishes all absolute reports in consumer order" {
       withScorecardRun { runDir, manifest ->
         BenchmarkReportCli.run(scorecard(manifest)) shouldBe 0
 
@@ -83,7 +83,7 @@ class ScorecardReportCliTest :
       }
     }
 
-    "manifest scorecard descriptors must match the fixed seven rows" {
+    "manifest scorecard descriptors must match the fixed eight rows" {
       withScorecardRun(
         manifestText = validManifest().replace("Postman V2 collection", "Changed journey")
       ) { runDir, manifest ->
@@ -265,6 +265,11 @@ private val expectedRows =
       "com.salesforce.revoman.benchmark.ConsumerJourneyBenchmark.postmanV2TenStepRevUp",
       "Postman V2 collection",
       "10-step script-free revUp",
+    ),
+    Triple(
+      "com.salesforce.revoman.benchmark.ConsumerJourneyBenchmark.postmanV2TenStepScriptedRevUp",
+      "Script-bearing Postman V2 collection",
+      "10-step scripted revUp",
     ),
     Triple(
       "com.salesforce.revoman.benchmark.ConsumerJourneyBenchmark.v3TenStepRevUp",

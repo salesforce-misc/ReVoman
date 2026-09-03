@@ -155,7 +155,7 @@ internal class ScorecardPreflightValidator(private val host: ScorecardHost) {
     require(
       validation.methods == expectedScorecardRows.map { it.benchmark.substringAfterLast('.') }
     ) {
-      "Runtime validation must name all seven scorecard methods in order"
+      "Runtime validation must name all eight scorecard methods in order"
     }
     require(validation.assertions.keys == REQUIRED_DEBUGGER_ASSERTIONS) {
       "Runtime validation must name all approved debugger assertions"

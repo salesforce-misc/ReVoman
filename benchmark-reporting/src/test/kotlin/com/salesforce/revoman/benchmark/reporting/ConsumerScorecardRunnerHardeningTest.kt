@@ -54,12 +54,12 @@ class ConsumerScorecardRunnerHardeningTest :
       }
     }
 
-    "preflight requires exactly the seven unique consumer journey benchmarks" {
+    "preflight requires exactly the eight unique consumer journey benchmarks" {
       withRunnerFixture { fixture ->
         listOf(
             SCORECARD_BENCHMARKS + SCORECARD_BENCHMARKS.first(),
             SCORECARD_BENCHMARKS +
-              "com.salesforce.revoman.benchmark.ConsumerJourneyBenchmark.eighthJourney",
+              "com.salesforce.revoman.benchmark.ConsumerJourneyBenchmark.ninthJourney",
           )
           .forEach { invalidBenchmarks ->
             writeJmhJar(fixture.request.benchmarkJar, benchmarks = invalidBenchmarks)

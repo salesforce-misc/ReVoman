@@ -4,7 +4,7 @@
 > (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use
 > checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add a reproducible, JDK 25-only baseline scorecard for seven public ReVoman consumer
+**Goal:** Add a reproducible, JDK 25-only baseline scorecard for eight public ReVoman consumer
 journeys and publish the accepted metrics in the Antora documentation.
 
 **Architecture:** Keep all measured fixtures and JMH methods in `:benchmarks`. Extend
@@ -47,7 +47,7 @@ requires `idea-cli`, `ide-index-mcp`, `jetbrains-debugger`, and
 
 ---
 
-## Task 1: Build and pin the seven consumer journeys
+## Task 1: Build and pin the eight consumer journeys
 
 **Files:**
 
@@ -83,6 +83,7 @@ requires `idea-cli`, `ide-index-mcp`, `jetbrains-debugger`, and
   ```kotlin
   internal class PreparedConsumerJourneys(
     val postmanV2TenStep: Kick,
+    val postmanV2TenStepScripted: Kick,
     val v3TenStep: Kick,
     val v3HundredStep: Kick,
     val v3TenStepScripted: Kick,
@@ -115,8 +116,8 @@ requires `idea-cli`, `ide-index-mcp`, `jetbrains-debugger`, and
 
   Add tests proving:
 
-  - the script-bearing V3 fixture executes ten HTTP steps and a representative `beforeRequest` or
-    `afterResponse` script writes the expected environment value;
+  - the script-bearing V2 and V3 fixtures each execute ten HTTP steps and a representative
+    after-response script writes the expected environment value;
   - `ReVoman.revUp(threeKicks)` executes 30 requests and carries an `Int`, a `Boolean`, and a
     `List<String>` through real `pm.environment.set`/lookup handoffs;
   - the equivalent three-step `Runbook` executes one ten-step kick per step, applies
@@ -128,7 +129,9 @@ requires `idea-cli`, `ide-index-mcp`, `jetbrains-debugger`, and
 
 - [ ] **Step 4: Implement the script-bearing, multi-kick, and runbook fixtures**
 
-  Build three V3 ten-request directories. The first response/script produces the mixed-type values,
+  Build the scripted V2 document alongside the script-free V2 document, with one `test` event that
+  writes the same marker as the scripted V3 fixture. Build three V3 ten-request directories. The
+  first response/script produces the mixed-type values,
   the second consumes them and produces the next lookup key, and the third consumes that key. Use
   the same three kicks in both the list and `Runbook` journeys so the scorecard compares orchestration
   forms rather than different HTTP work. Keep all setup immutable after `prepareConsumerJourneys`
@@ -158,7 +161,7 @@ requires `idea-cli`, `ide-index-mcp`, `jetbrains-debugger`, and
   remove only each object's owned temporary fixture root from `close()`. Verify a failed preparation
   also cleans up its temporary directory.
 
-  Run the focused test. Expected: all seven consumer contracts and cleanup pass.
+  Run the focused test. Expected: all eight consumer contracts and cleanup pass.
 
 - [ ] **Step 7: Add one JMH method per documentation row**
 
@@ -169,6 +172,7 @@ requires `idea-cli`, `ide-index-mcp`, `jetbrains-debugger`, and
 
   ```text
   postmanV2TenStepRevUp             ReVoman.revUp(postmanV2TenStep)
+  postmanV2TenStepScriptedRevUp     ReVoman.revUp(postmanV2TenStepScripted)
   v3TenStepRevUp                    ReVoman.revUp(v3TenStep)
   v3HundredStepRevUp                ReVoman.revUp(v3HundredStep)
   v3TenStepScriptedRevUp            ReVoman.revUp(v3TenStepScripted)
@@ -193,7 +197,7 @@ requires `idea-cli`, `ide-index-mcp`, `jetbrains-debugger`, and
     | rg 'ConsumerJourneyBenchmark'
   ```
 
-  Expected: the fat JAR builds and lists exactly the seven method names.
+  Expected: the fat JAR builds and lists exactly the eight method names.
 
 - [ ] **Step 8: Format and commit the benchmark slice**
 
@@ -245,12 +249,13 @@ requires `idea-cli`, `ide-index-mcp`, `jetbrains-debugger`, and
 
   Run the characterization test. Expected: it remains green with byte-equivalent comparison files.
 
-- [ ] **Step 3: Write failing tests for a valid seven-row absolute scorecard**
+- [ ] **Step 3: Write failing tests for a valid eight-row absolute scorecard**
 
   Add a manifest and CSV fixture containing these exact fully qualified benchmarks in this order:
 
   ```text
   com.salesforce.revoman.benchmark.ConsumerJourneyBenchmark.postmanV2TenStepRevUp
+  com.salesforce.revoman.benchmark.ConsumerJourneyBenchmark.postmanV2TenStepScriptedRevUp
   com.salesforce.revoman.benchmark.ConsumerJourneyBenchmark.v3TenStepRevUp
   com.salesforce.revoman.benchmark.ConsumerJourneyBenchmark.v3HundredStepRevUp
   com.salesforce.revoman.benchmark.ConsumerJourneyBenchmark.v3TenStepScriptedRevUp
@@ -291,7 +296,7 @@ requires `idea-cli`, `ide-index-mcp`, `jetbrains-debugger`, and
   Add `ScorecardRowSchema` to `BenchmarkSchemas.kt`. In `ScorecardReport.kt`, parse the manifest,
   validate it against the fixed profile (`avgt`, `ms/op`, one thread, five forks, ten warmups,
   twenty measurements, one-second iterations, 99.9-percent confidence, 100 samples), join the CSV
-  to the seven expected descriptors, and build the typed DataFrame. Extend `CsvSupport.kt` with
+  to the eight expected descriptors, and build the typed DataFrame. Extend `CsvSupport.kt` with
   scorecard CSV, Markdown, and AsciiDoc renderers. The AsciiDoc partial must include `scorecard-study-id`
   and `scorecard-run-id` attributes so documentation tests can resolve its evidence source. Format
   numeric display values with `Locale.ROOT` and retain enough precision to reconstruct the CSV
@@ -420,7 +425,7 @@ requires `idea-cli`, `ide-index-mcp`, `jetbrains-debugger`, and
   - `git rev-parse HEAD` matches the runtime-validation record;
   - `git status --porcelain=v1 -z` contains only normalized paths explicitly allowed by the request;
   - the benchmark selector is the exact anchored `ConsumerJourneyBenchmark` selector;
-  - the runtime-validation record names all seven methods and all approved debugger assertions.
+  - the runtime-validation record names all eight methods and all approved debugger assertions.
 
   Print concise phase-level progress to stdout and actionable failures to stderr; do not add a new
   logging framework. Run the focused tests. Expected: all preflight cases pass without starting a
@@ -463,15 +468,15 @@ requires `idea-cli`, `ide-index-mcp`, `jetbrains-debugger`, and
 
   1. create `.benchmark-staging/consumer-performance-scorecard/<run-id>`, where the UTC identifier
      uses `yyyyMMdd'T'HHmmss'Z'`;
-  2. run each of seven method selectors separately for `cpu`, `alloc`, and `lock` profiles with one
+  2. run each of eight method selectors separately for `cpu`, `alloc`, and `lock` profiles with one
      fork and short smoke iterations, then render a text summary beside each recording;
-  3. run one unprofiled final JMH command for all seven rows;
+  3. run one unprofiled final JMH command for all eight rows;
   4. write `manifest.json`, `environment/run.json`, and `raw/results.csv`;
   5. invoke scorecard validation/rendering;
   6. atomically move the complete run to
      `benchmark-results/consumer-performance-scorecard/<run-id>`.
 
-  Require 21 nonempty `raw/profiles/<method>/<event>.jfr` files and 21 matching `.txt` summaries.
+  Require 24 nonempty `raw/profiles/<method>/<event>.jfr` files and 24 matching `.txt` summaries.
   Use the selected JDK's `jfr view hot-methods` for CPU and `jfr view contention-by-site` for locks.
   For `allocation-by-class`, aggregate `jdk.ObjectAllocationInNewTLAB` and
   `jdk.ObjectAllocationOutsideTLAB` by class with the JDK Flight Recorder consumer API. Weight
@@ -745,9 +750,10 @@ requires `idea-cli`, `ide-index-mcp`, `jetbrains-debugger`, and
   Run one method at a time with one fork, a single short warmup, and a single measurement. Through
   debugger breakpoints and inspected values, verify and record:
 
-  - V2 enters only the V2 buffer/loader path and both V3 sizes enter `V3Loader.load`;
-  - `PmSandbox` is absent from script-free V2/V3 and present only for scripted handoffs;
-  - handler counts are 10, 10, 100, 10, 30, and 30 for the six execution rows;
+  - both V2 methods enter only the V2 buffer/loader path and all V3 methods enter `V3Loader.load`;
+  - `PmSandbox` is absent from script-free V2/V3 and present for both scripted format rows and the
+    scripted handoffs;
+  - handler counts are 10, 10, 10, 100, 10, 30, and 30 for the seven execution rows;
   - mixed-type environment values reach the second and third kick;
   - runbook consumes/produces and `assertAfter` execute successfully;
   - serialization begins with the prepared successful 100-step rundown and does not call
@@ -766,9 +772,9 @@ requires `idea-cli`, `ide-index-mcp`, `jetbrains-debugger`, and
     "-Drevoman.scorecard.expectedJavaFeature=25 -Drevoman.banner=off -agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=127.0.0.1:5005"
   ```
 
-  Repeat with the other six names; do not run two suspended forks concurrently.
+  Repeat with the other seven names; do not run two suspended forks concurrently.
 
-  Save a credential-free JSON validation record containing revision, timestamp, seven method names,
+  Save a credential-free JSON validation record containing revision, timestamp, eight method names,
   debugger tool/session identity, and boolean results. Do not include usernames or hostnames.
   Store it at
   `.benchmark-staging/consumer-performance-scorecard/runtime-validation.json`, then set:
@@ -817,8 +823,8 @@ requires `idea-cli`, `ide-index-mcp`, `jetbrains-debugger`, and
       -PscorecardAllowedDirty="$REVOMAN_ALLOWED_DIRTY"
   ```
 
-  Expected: the runner first writes 21 separate async-profiler JFR captures, then one unprofiled
-  seven-row CSV, validates the absolute scorecard, and atomically installs exactly one UTC run
+  Expected: the runner first writes 24 separate async-profiler JFR captures, then one unprofiled
+  eight-row CSV, validates the absolute scorecard, and atomically installs exactly one UTC run
   directory. Any failure means reject the entire attempt, diagnose under systematic-debugging, and
   rerun the unchanged protocol; never hand-edit measurements or publish a subset.
 
@@ -829,9 +835,9 @@ requires `idea-cli`, `ide-index-mcp`, `jetbrains-debugger`, and
   git status --short
   ```
 
-  Check that the manifest revision is the measured commit, all seven rows are `avgt`/`ms/op`, each
+  Check that the manifest revision is the measured commit, all eight rows are `avgt`/`ms/op`, each
   has one thread and 100 samples, errors are finite and nonnegative, every JDK feature is 25, the
-  affinity matches `environment/run.json`, and all 21 profiles and 21 fixed-view summaries are
+  affinity matches `environment/run.json`, and all 24 profiles and 24 fixed-view summaries are
   nonempty. Confirm `profilerFacts` references the raw captures/summaries and
   `optimizationHypotheses` remains separate and empty. This is a read-only audit of the atomically
   published run; do not hand-edit evidence or make a production change from the observations.
@@ -882,7 +888,7 @@ requires `idea-cli`, `ide-index-mcp`, `jetbrains-debugger`, and
     "$REVOMAN_PERFORMANCE_HTML"
   ```
 
-  Expected: Antora succeeds and the rendered page contains all seven rows and the confidence label.
+  Expected: Antora succeeds and the rendered page contains all eight rows and the confidence label.
 
 - [ ] **Step 11: Run repository verification on Java 25**
 
@@ -922,8 +928,8 @@ requires `idea-cli`, `ide-index-mcp`, `jetbrains-debugger`, and
 
 ## Final acceptance checklist
 
-- [ ] Exactly seven stable consumer-facing benchmark rows are present.
-- [ ] The first six rows time one complete public `revUp` call; serialization times only `toJson`.
+- [ ] Exactly eight stable consumer-facing benchmark rows are present.
+- [ ] The first seven rows time one complete public `revUp` call; serialization times only `toJson`.
 - [ ] All HTTP traffic uses deterministic in-process `Kick.httpClient(HttpHandler)` responses.
 - [ ] Gradle client, daemon, toolchain, runner, and every JMH fork report Java feature 25.
 - [ ] Final results use `avgt`, `ms/op`, one thread, five forks, ten warmups, twenty measurements,

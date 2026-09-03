@@ -11,12 +11,13 @@ change production behavior, or claim that a previously observed hotspot is still
 
 ## Consumer journeys
 
-Add a dedicated `ConsumerJourneyBenchmark` suite with seven stable benchmark methods. Each method
+Add a dedicated `ConsumerJourneyBenchmark` suite with eight stable benchmark methods. Each method
 maps to one documentation row rather than using parameters that readers must decode.
 
 | Row | Measured consumer operation | Fixture and result contract |
 | --- | --- | --- |
 | Postman V2 collection | `ReVoman.revUp(kick)` for a script-free ten-step Postman Collection V2 document | Ten successful reports and exactly ten handler calls |
+| Script-bearing Postman V2 collection | `ReVoman.revUp(kick)` for a ten-step Postman Collection V2 document with a representative Postman script | Ten successful reports, ten handler calls, and the expected script effect |
 | ReVoman V3 collection | `ReVoman.revUp(kick)` for the equivalent script-free ten-step V3 graph | Ten successful reports and exactly ten handler calls |
 | Large V3 collection | `ReVoman.revUp(kick)` for a script-free 100-step V3 graph | 100 successful reports and exactly 100 handler calls |
 | Script-bearing V3 collection | `ReVoman.revUp(kick)` for a ten-step V3 graph with representative Postman scripts | Ten successful reports, ten handler calls, and the expected script effect |
@@ -24,12 +25,14 @@ maps to one documentation row rather than using parameters that readers must dec
 | Contracted runbook | `ReVoman.revUp(runbook)` for the equivalent three-step `Runbook` | Three successful child rundowns, satisfied `consumes` and `produces` contracts, and the same environment handoffs |
 | Verbose result rendering | `rundown.toJson(Verbosity.VERBOSE)` | A prepared successful 100-step `Rundown` renders valid verbose JSON with all step reports |
 
-The V2 and V3 rows stay separate even though their logical requests match. They exercise different
-consumer input formats and loader paths.
+The script-free V2 and V3 rows stay separate even though their logical requests match. They exercise
+different consumer input formats and loader paths. Script-bearing V2 and V3 also stay separate so
+the scorecard covers each supported input format's script parsing and mapping before the shared
+sandbox execution path.
 
 ## Measurement boundary
 
-The first six rows time one complete public `revUp` call. Trial setup constructs and validates
+The first seven rows time one complete public `revUp` call. Trial setup constructs and validates
 immutable fixture data and consumer configuration. It does not load a collection, create a
 `PostmanSDK`, execute a request, or retain a prior `Rundown`. Each measured invocation starts with
 the prepared configuration and consumes the returned result through the JMH blackhole.
@@ -107,13 +110,13 @@ Keep the existing comparison command and its strict acceptance rule unchanged:
 candidate score + candidate error < baseline score - baseline error
 ```
 
-Add a separate `scorecard` command for one absolute JMH result. It expects exactly the seven named
+Add a separate `scorecard` command for one absolute JMH result. It expects exactly the eight named
 rows and rejects missing rows, duplicates, unexpected rows, wrong mode, wrong thread count, wrong
 unit, malformed or non-finite values, negative errors, and missing 99.9-percent confidence data.
 It also verifies the fixed fork, warmup, measurement, iteration-time, revision, affinity, and JDK
 metadata from the manifest.
 
-An absolute scorecard has no improvement verdict. Validation means that all seven measurements are
+An absolute scorecard has no improvement verdict. Validation means that all eight measurements are
 complete and comparable with future snapshots made under the same protocol. The generated table
 shows journey, workload, score, 99.9-percent error, and unit in a fixed consumer-facing order.
 
@@ -156,7 +159,7 @@ Before the final measurement, run each journey as an isolated smoke case through
 Index navigation to identify the relevant definitions and call sites. Use the JetBrains debugger to
 verify:
 
-- V2 and V3 inputs enter their intended loader paths;
+- script-free and script-bearing V2 and V3 inputs enter their intended loader paths;
 - `PmSandbox` performs script work only for the script-bearing and handoff fixtures that require it;
 - handler invocation counts match executed HTTP steps;
 - the multi-kick and runbook cases carry the intended environment values;
@@ -176,10 +179,10 @@ does not add missing MCP bindings.
 
 Use test-driven development for each component.
 
-- Benchmark workload tests pin all seven fixture contracts, including V2/V3 equivalence, exact
+- Benchmark workload tests pin all eight fixture contracts, including V2/V3 equivalence, exact
   handler counts, script effects, all-type environment handoffs, runbook contracts, and verbose
   JSON content.
-- Reporting tests cover a valid seven-row snapshot and every structural rejection above. Existing
+- Reporting tests cover a valid eight-row snapshot and every structural rejection above. Existing
   comparison-mode tests prove its CLI, exit codes, strict inequality, and atomic publication remain
   unchanged.
 - Gradle functional tests cover Java 25 preflight failures, task inputs, JMH artifact wiring, and a

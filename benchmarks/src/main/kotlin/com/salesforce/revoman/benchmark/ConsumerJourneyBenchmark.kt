@@ -24,6 +24,11 @@ open class ConsumerJourneyBenchmark {
   }
 
   @Benchmark
+  fun postmanV2TenStepScriptedRevUp(state: ConsumerRevUpState, blackhole: Blackhole) {
+    blackhole.consume(ReVoman.revUp(state.postmanV2TenStepScripted))
+  }
+
+  @Benchmark
   fun v3TenStepRevUp(state: ConsumerRevUpState, blackhole: Blackhole) {
     blackhole.consume(ReVoman.revUp(state.v3TenStep))
   }
@@ -60,6 +65,9 @@ open class ConsumerRevUpState {
 
   internal val postmanV2TenStep: Kick
     get() = prepared.postmanV2TenStep
+
+  internal val postmanV2TenStepScripted: Kick
+    get() = prepared.postmanV2TenStepScripted
 
   internal val v3TenStep: Kick
     get() = prepared.v3TenStep

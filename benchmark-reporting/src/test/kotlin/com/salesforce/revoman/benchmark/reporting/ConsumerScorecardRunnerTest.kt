@@ -181,10 +181,10 @@ class ConsumerScorecardRunnerTest :
             .sorted()
             .toList()
         } shouldContainExactly expectedAcceptedFiles()
-        executor.commands shouldHaveSize 36
+        executor.commands shouldHaveSize 41
         executor.commands.filter { command -> command.any { "-agentpath:" in it } } shouldHaveSize
-          21
-        executor.commands.filter { it.first().endsWith("/bin/jfr") } shouldHaveSize 14
+          24
+        executor.commands.filter { it.first().endsWith("/bin/jfr") } shouldHaveSize 16
 
         val finalCommand = executor.commands.last()
         val runtimeRoot = Path.of(finalCommand[5]).parent
@@ -261,7 +261,7 @@ class ConsumerScorecardRunnerTest :
         manifest.getValue("runId").jsonPrimitive.content shouldBe "20260902T010203Z"
         manifest.getValue("command").jsonArray.map { it.jsonPrimitive.content } shouldContainExactly
           finalCommand
-        manifest.getValue("profilerFacts").jsonArray shouldHaveSize 21
+        manifest.getValue("profilerFacts").jsonArray shouldHaveSize 24
         manifest.getValue("optimizationHypotheses").jsonArray shouldHaveSize 0
         manifest.getValue("raw").jsonObject.getValue("results").jsonPrimitive.content shouldBe
           "raw/results.csv"
@@ -296,7 +296,7 @@ class ConsumerScorecardRunnerTest :
 
         ConsumerScorecardRunner(fixture.host, executor).run(fixture.request)
 
-        observedProfiles shouldBe 21
+        observedProfiles shouldBe 24
       }
     }
 
@@ -719,6 +719,7 @@ private fun jmhBenchmarkListEntry(benchmark: String): String {
 internal val SCORECARD_BENCHMARKS =
   listOf(
     "com.salesforce.revoman.benchmark.ConsumerJourneyBenchmark.postmanV2TenStepRevUp",
+    "com.salesforce.revoman.benchmark.ConsumerJourneyBenchmark.postmanV2TenStepScriptedRevUp",
     "com.salesforce.revoman.benchmark.ConsumerJourneyBenchmark.v3TenStepRevUp",
     "com.salesforce.revoman.benchmark.ConsumerJourneyBenchmark.v3HundredStepRevUp",
     "com.salesforce.revoman.benchmark.ConsumerJourneyBenchmark.v3TenStepScriptedRevUp",
@@ -734,6 +735,7 @@ internal fun validRuntimeValidation(revision: String): String =
     "timestamp": "2026-09-02T01:02:03Z",
     "methods": [
       "postmanV2TenStepRevUp",
+      "postmanV2TenStepScriptedRevUp",
       "v3TenStepRevUp",
       "v3HundredStepRevUp",
       "v3TenStepScriptedRevUp",
@@ -943,6 +945,7 @@ private fun expectedAcceptedFiles(): List<String> {
   val profiles =
     listOf(
         "postmanV2TenStepRevUp",
+        "postmanV2TenStepScriptedRevUp",
         "v3TenStepRevUp",
         "v3HundredStepRevUp",
         "v3TenStepScriptedRevUp",

@@ -51,6 +51,11 @@ internal val expectedScorecardRows =
       "10-step script-free revUp",
     ),
     ExpectedScorecardRow(
+      "com.salesforce.revoman.benchmark.ConsumerJourneyBenchmark.postmanV2TenStepScriptedRevUp",
+      "Script-bearing Postman V2 collection",
+      "10-step scripted revUp",
+    ),
+    ExpectedScorecardRow(
       "com.salesforce.revoman.benchmark.ConsumerJourneyBenchmark.v3TenStepRevUp",
       "ReVoman V3 collection",
       "10-step script-free revUp",

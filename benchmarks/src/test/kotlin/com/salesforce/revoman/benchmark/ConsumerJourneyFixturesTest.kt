@@ -58,6 +58,16 @@ class ConsumerJourneyFixturesTest :
       }
     }
 
+    test("script-bearing V2 collection executes its Postman script") {
+      prepareConsumerJourneys().use { prepared ->
+        val rundown = ReVoman.revUp(prepared.postmanV2TenStepScripted)
+
+        rundown.validate(expectedStepCount = 10)
+        rundown.mutableEnv["scriptedMarker"] shouldBe "after-response-ran"
+        prepared.handlerLedger.calls().size shouldBe 10
+      }
+    }
+
     test("three kicks hand off mixed environment value types through Postman scripts") {
       prepareConsumerJourneys().use { prepared ->
         val handoffKeys = setOf("handoffCount", "handoffReady", "handoffTags", "lookupKey")

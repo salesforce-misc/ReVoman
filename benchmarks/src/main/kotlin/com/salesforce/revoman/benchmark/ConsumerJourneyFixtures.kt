@@ -66,6 +66,7 @@ internal class HandlerLedger {
 
 internal class PreparedConsumerJourneys(
   val postmanV2TenStep: Kick,
+  val postmanV2TenStepScripted: Kick,
   val v3TenStep: Kick,
   val v3HundredStep: Kick,
   val v3TenStepScripted: Kick,
@@ -87,6 +88,10 @@ internal fun prepareConsumerJourneys(): PreparedConsumerJourneys =
     val postmanV2TenStep =
       fixtureRoot.resolve("postman-v2-ten-step.json").also {
         Files.writeString(it, postmanV2Collection(stepCount = 10))
+      }
+    val postmanV2TenStepScripted =
+      fixtureRoot.resolve("postman-v2-ten-step-scripted.json").also {
+        Files.writeString(it, postmanV2Collection(stepCount = 10, includeScript = true))
       }
     val v3TenStep = writeV3Collection(fixtureRoot, "v3-ten-step", stepCount = 10)
     val v3HundredStep = writeV3Collection(fixtureRoot, "v3-hundred-step", stepCount = 100)
@@ -119,6 +124,7 @@ internal fun prepareConsumerJourneys(): PreparedConsumerJourneys =
 
     PreparedConsumerJourneys(
       postmanV2TenStep = v2Kick,
+      postmanV2TenStepScripted = kickFor(postmanV2TenStepScripted),
       v3TenStep = v3TenStepKick,
       v3HundredStep = kickFor(v3HundredStep),
       v3TenStepScripted = kickFor(v3TenStepScripted),
@@ -197,10 +203,16 @@ internal fun prepareVerboseRendering(): PreparedVerboseRendering =
     )
   }
 
-private fun postmanV2Collection(stepCount: Int): String =
+private fun postmanV2Collection(stepCount: Int, includeScript: Boolean = false): String =
   (1..stepCount).joinToString(",", prefix = "{\"item\":[", postfix = "],\"auth\":null}") { index ->
     val stepName = stepName(index)
-    "{\"name\":\"$stepName\",\"request\":{\"method\":\"GET\",\"url\":{\"raw\":\"$BENCHMARK_BASE_URL/$stepName\"}}}"
+    val event =
+      if (includeScript && index == 1) {
+        ",\"event\":[{\"listen\":\"test\",\"script\":{\"exec\":[\"pm.environment.set('scriptedMarker', 'after-response-ran');\"],\"type\":\"text/javascript\"}}]"
+      } else {
+        ""
+      }
+    "{\"name\":\"$stepName\",\"request\":{\"method\":\"GET\",\"url\":{\"raw\":\"$BENCHMARK_BASE_URL/$stepName\"}}$event}"
   }
 
 private fun writeV3Collection(

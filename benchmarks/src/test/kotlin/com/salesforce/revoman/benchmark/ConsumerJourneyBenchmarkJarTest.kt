@@ -46,6 +46,24 @@ class ConsumerJourneyBenchmarkJarTest :
       }
     }
 
+    "executable benchmark jar lists all eight consumer journeys" {
+      val process =
+        ProcessBuilder(
+            javaExecutable().toString(),
+            "-jar",
+            benchmarkJar().toString(),
+            "-l",
+          )
+          .redirectErrorStream(true)
+          .start()
+      val output = process.inputStream.bufferedReader().readText()
+
+      process.waitFor(PROCESS_TIMEOUT_SECONDS, TimeUnit.SECONDS) shouldBe true
+      process.exitValue() shouldBe 0
+      output.lineSequence().filter { it.startsWith(CONSUMER_BENCHMARK_PREFIX) }.toList() shouldBe
+        EXPECTED_CONSUMER_BENCHMARKS
+    }
+
     "executable benchmark jar retains unique Truffle language providers" {
       ZipFile(benchmarkJar().toFile()).use { archive ->
         val descriptor =
@@ -128,6 +146,19 @@ class ConsumerJourneyBenchmarkJarTest :
   })
 
 private const val PROCESS_TIMEOUT_SECONDS = 60L
+private const val CONSUMER_BENCHMARK_PREFIX =
+  "com.salesforce.revoman.benchmark.ConsumerJourneyBenchmark."
+private val EXPECTED_CONSUMER_BENCHMARKS =
+  listOf(
+    "${CONSUMER_BENCHMARK_PREFIX}postmanV2TenStepRevUp",
+    "${CONSUMER_BENCHMARK_PREFIX}postmanV2TenStepScriptedRevUp",
+    "${CONSUMER_BENCHMARK_PREFIX}threeKickEnvironmentHandoff",
+    "${CONSUMER_BENCHMARK_PREFIX}threeStepRunbookWithContracts",
+    "${CONSUMER_BENCHMARK_PREFIX}v3HundredStepRevUp",
+    "${CONSUMER_BENCHMARK_PREFIX}v3TenStepRevUp",
+    "${CONSUMER_BENCHMARK_PREFIX}v3TenStepScriptedRevUp",
+    "${CONSUMER_BENCHMARK_PREFIX}verboseHundredStepRundownJson",
+  )
 private const val SCRIPTED_BENCHMARK_SELECTOR =
   "^com\\.salesforce\\.revoman\\.benchmark\\.ConsumerJourneyBenchmark\\.v3TenStepScriptedRevUp$"
 private const val TRUFFLE_LANGUAGE_PROVIDER_DESCRIPTOR =
