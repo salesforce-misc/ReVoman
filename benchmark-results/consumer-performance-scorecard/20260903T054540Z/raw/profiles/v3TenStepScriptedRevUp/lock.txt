@@ -1,0 +1,8 @@
+
+                                     Contention by Site
+
+StackTrace                                                      Count       Avg.       Max.
+--------------------------------------------------------------- ----- ---------- ----------
+java.util.jar.JarFile.getInputStream(ZipEntry)                      1  0.0607 ms  0.0607 ms
+java.util.zip.ZipFile$ZipFileInputStream.read(byte[], int, int)     1  0.0386 ms  0.0386 ms
+java.util.jar.JarFile.ensureInitialization()                        1 0.00937 ms 0.00937 ms

@@ -1,0 +1,30 @@
+
+                                           Java Methods that Execute the Most
+
+Method                                                                                                  Samples Percent
+------------------------------------------------------------------------------------------------------- ------- -------
+libjvm.so.PhaseChaitin::Split()                                                                              69   2.06%
+libjvm.so.IndexSetIterator::advance_and_next()                                                               68   2.03%
+libjvm.so.G1ParScanThreadState::trim_queue_to_threshold()                                                    61   1.82%
+libjvm.so.PhaseChaitin::elide_copy()                                                                         50   1.49%
+libjvm.so.PhaseChaitin::interfere_with_live()                                                                46   1.37%
+libjvm.so.PhaseChaitin::gather_lrg_masks()                                                                   40   1.20%
+libjvm.so.PhaseIdealLoop::build_loop_late()                                                                  39   1.17%
+libjvm.so.PhaseLive::compute()                                                                               37   1.11%
+libjvm.so.PhaseChaitin::post_allocate_copy_removal()                                                         30   0.90%
+libjvm.so.PhaseIdealLoop::build_loop_early()                                                                 28   0.84%
+libc.so.6.__memset_evex_unaligned_erms()                                                                     28   0.84%
+ld-linux-x86-64.so.2.__tls_get_addr()                                                                        28   0.84%
+libjvm.so.PhaseChaitin::build_ifg_physical()                                                                 24   0.72%
+libjvm.so.SymbolTable::do_lookup()                                                                           24   0.72%
+./usr/lib/x86_64-linux-gnu/libz.so.1.3()                                                                     23   0.69%
+libjvm.so.resource_allocate_bytes()                                                                          21   0.63%
+libjvm.so.Dict::Insert()                                                                                     20   0.60%
+libjvm.so.Arena::contains()                                                                                  20   0.60%
+libjvm.so.InstanceKlass::find_method_index()                                                                 20   0.60%
+libjvm.so.PhaseIdealLoop::build_loop_late_post_work()                                                        18   0.54%
+libjvm.so.PhaseIdealLoop::build_loop_tree()                                                                  18   0.54%
+libjvm.so.Unique_Node_List::remove()                                                                         18   0.54%
+libjvm.so.Compile::identify_useful_nodes()                                                                   17   0.51%
+libc.so.6.__memmove_evex_unaligned_erms()                                                                    17   0.51%
+libjvm.so.PhaseAggressiveCoalesce::insert_copies()                                                           17   0.51%

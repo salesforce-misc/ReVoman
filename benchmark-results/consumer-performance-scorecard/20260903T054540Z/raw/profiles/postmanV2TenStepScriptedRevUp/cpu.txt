@@ -1,0 +1,30 @@
+
+                                           Java Methods that Execute the Most
+
+Method                                                                                                  Samples Percent
+------------------------------------------------------------------------------------------------------- ------- -------
+libjvm.so.IndexSetIterator::advance_and_next()                                                               64   2.50%
+libjvm.so.PhaseChaitin::elide_copy()                                                                         47   1.84%
+libjvm.so.PhaseChaitin::Split()                                                                              37   1.45%
+ld-linux-x86-64.so.2.__tls_get_addr()                                                                        36   1.41%
+libjvm.so.PhaseChaitin::gather_lrg_masks()                                                                   33   1.29%
+libjvm.so.InstanceKlass::find_method_index()                                                                 28   1.09%
+libjvm.so.PhaseLive::compute()                                                                               27   1.05%
+libjvm.so.PhaseIdealLoop::build_loop_late()                                                                  25   0.98%
+libjvm.so.PhaseChaitin::interfere_with_live()                                                                25   0.98%
+libc.so.6.__memset_evex_unaligned_erms()                                                                     25   0.98%
+./usr/lib/x86_64-linux-gnu/libz.so.1.3()                                                                     23   0.90%
+libjvm.so.Dict::Insert()                                                                                     20   0.78%
+libc.so.6.__memmove_evex_unaligned_erms()                                                                    20   0.78%
+libjvm.so.PhaseChaitin::post_allocate_copy_removal()                                                         19   0.74%
+libjvm.so.PhaseIdealLoop::build_loop_early()                                                                 18   0.70%
+libjvm.so.PhaseChaitin::build_ifg_physical()                                                                 17   0.66%
+libjvm.so.PhaseIdealLoop::build_loop_late_post_work()                                                        16   0.63%
+libjvm.so.resource_allocate_bytes()                                                                          16   0.63%
+libjvm.so.Compile::disconnect_useless_nodes()                                                                14   0.55%
+libjvm.so.PhaseCFG::sched_call()                                                                             13   0.51%
+libjvm.so.PhaseChaitin::add_input_to_liveout()                                                               13   0.51%
+libjvm.so.PhaseIFG::effective_degree()                                                                       13   0.51%
+libjvm.so.DebugInformationRecorder::find_sharable_decode_offset()                                            13   0.51%
+libjvm.so.G1ParScanThreadState::trim_queue_to_threshold()                                                    13   0.51%
+libjvm.so.Type::Initialize_shared(Compile*)::{lambda(void const*, void const*)#1}::_FUN()                    12   0.47%
