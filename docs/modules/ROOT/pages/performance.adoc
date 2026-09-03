@@ -9,7 +9,7 @@ include::partial$performance-scorecard.adoc[]
 
 == Measurement context
 
-The accepted run measured ReṼoman 0.90.0 at revision `f93cccd3` on an Intel Core i7-9800X with
+The accepted run measured ReṼoman 0.90.0 at revision `7b1603db` on an Intel Core i7-9800X with
 Linux 6.8.0-138-generic and Amazon OpenJDK 25.0.4.1. JMH used average time in milliseconds per
 operation, one thread pinned to logical CPUs 0 through 7, five forks, ten one-second warmup
 iterations, and twenty one-second measurement iterations per fork. Each row therefore contains 100
@@ -25,4 +25,4 @@ remote-service latency, cold JVM startup, and caller work outside the measured p
 
 The complete manifest, environment snapshot, raw JMH CSV, and CPU, allocation, and lock profiles are
 available in the
-https://github.com/salesforce-misc/ReVoman/tree/master/benchmark-results/consumer-performance-scorecard/20260902T201823Z[accepted evidence directory].
+https://github.com/salesforce-misc/ReVoman/tree/master/benchmark-results/consumer-performance-scorecard/20260903T054540Z[accepted evidence directory].
