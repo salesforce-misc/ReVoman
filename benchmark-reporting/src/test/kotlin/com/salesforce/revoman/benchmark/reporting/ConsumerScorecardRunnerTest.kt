@@ -9,7 +9,9 @@ import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
 import io.kotest.matchers.string.shouldStartWith
+import java.io.ByteArrayOutputStream
 import java.io.IOException
+import java.io.PrintStream
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Clock
@@ -275,6 +277,23 @@ class ConsumerScorecardRunnerTest :
           "runtime version: 25.0.1; vendor: Test Gradle Vendor; VM: Test Gradle VM"
         identities.getValue("jmh").jsonObject.getValue("identity").jsonPrimitive.content shouldBe
           "selected executable: ${fixture.request.javaExecutable}; in-fork feature assertion: 25"
+      }
+    }
+
+    "runner reports the calculated method and event profile count" {
+      withRunnerFixture { fixture ->
+        val output = ByteArrayOutputStream()
+        val originalOut = System.out
+        try {
+          System.setOut(PrintStream(output, true, Charsets.UTF_8))
+
+          ConsumerScorecardRunner(fixture.host, RecordingBenchmarkExecutor()).run(fixture.request)
+        } finally {
+          System.setOut(originalOut)
+        }
+
+        output.toString(Charsets.UTF_8) shouldContain
+          "consumer-scorecard: profiling 24 method/event pairs"
       }
     }
 

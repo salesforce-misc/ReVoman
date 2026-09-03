@@ -108,7 +108,10 @@ internal class ConsumerScorecardRunner(
     attempt: ScorecardAttempt,
     runtime: ScorecardRuntime,
   ): List<ProfilerFact> {
-    println("consumer-scorecard: profiling 21 method/event pairs")
+    println(
+      "consumer-scorecard: profiling ${expectedScorecardRows.size * PROFILE_EVENTS.size} " +
+        "method/event pairs"
+    )
     return expectedScorecardRows.flatMap { row ->
       val method = row.benchmark.substringAfterLast('.')
       PROFILE_EVENTS.map { profile ->
