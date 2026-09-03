@@ -1,0 +1,30 @@
+
+                                           Java Methods that Execute the Most
+
+Method                                                                                                  Samples Percent
+------------------------------------------------------------------------------------------------------- ------- -------
+libjvm.so.InstanceKlass::find_method_index()                                                                  8   1.83%
+ld-linux-x86-64.so.2.__tls_get_addr()                                                                         8   1.83%
+libjvm.so.DebugInformationRecorder::find_sharable_decode_offset()                                             7   1.60%
+libc.so.6.__GI___libc_read()                                                                                  6   1.37%
+./usr/lib/x86_64-linux-gnu/libz.so.1.3()                                                                      6   1.37%
+libjvm.so.SymbolTable::do_lookup()                                                                            6   1.37%
+libjvm.so.PhaseChaitin::elide_copy()                                                                          5   1.14%
+libjvm.so.PhaseChaitin::Split()                                                                               5   1.14%
+libjvm.so.PhaseChaitin::gather_lrg_masks()                                                                    5   1.14%
+libc.so.6.__memset_evex_unaligned_erms()                                                                      5   1.14%
+libjvm.so.PhaseIdealLoop::build_loop_early()                                                                  5   1.14%
+libjvm.so.LinearScan::build_intervals()                                                                       4   0.92%
+libjvm.so.PhaseChaitin::post_allocate_copy_removal()                                                          4   0.92%
+libjvm.so.PhaseIdealLoop::build_loop_late()                                                                   4   0.92%
+libjvm.so.PhaseIdealLoop::build_loop_late_post_work()                                                         4   0.92%
+libjvm.so.PhaseChaitin::interfere_with_live()                                                                 3   0.69%
+libjvm.so.PhaseChaitin::build_ifg_physical()                                                                  3   0.69%
+libc.so.6.__futex_abstimed_wait_cancelable64()                                                                3   0.69%
+libjvm.so.GrowableArrayWithAllocator<int, GrowableArray<int> >::expand_to()                                   3   0.69%
+libc.so.6.mprotect()                                                                                          3   0.69%
+libjvm.so.IndexSetIterator::advance_and_next()                                                                3   0.69%
+libc.so.6.__GI___lll_lock_wait()                                                                              3   0.69%
+libjvm.so.PhaseOutput::BuildOopMaps()                                                                         3   0.69%
+libjvm.so.PhaseIterGVN::add_users_of_use_to_worklist()                                                        3   0.69%
+libjvm.so.LinearScanWalker::free_collect_inactive_fixed()                                                     3   0.69%

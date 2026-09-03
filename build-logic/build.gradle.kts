@@ -27,4 +27,17 @@ dependencies {
   implementation(libs.testLogger.gradle)
   implementation(libs.dataframe.gradle)
   implementation(libs.benchmark.gradle)
+  testImplementation(gradleTestKit())
+  testImplementation(libs.bundles.kotest)
+}
+
+val javaToolchains = extensions.getByType<JavaToolchainService>()
+val optionalJava21Home = providers.systemProperty("consumerScorecardTest.java21Home")
+
+tasks.withType<Test>().configureEach {
+  useJUnitPlatform()
+  javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(25) }
+  optionalJava21Home.orNull?.let { java21Home ->
+    systemProperty("consumerScorecardTest.java21Home", java21Home)
+  }
 }

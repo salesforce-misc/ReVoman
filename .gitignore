@@ -301,3 +301,6 @@ cmux-assets/
 
 # Local Git worktrees
 /.worktrees/
+
+# Disposable consumer-scorecard attempts
+/.benchmark-staging/

@@ -1,0 +1,30 @@
+
+                                           Java Methods that Execute the Most
+
+Method                                                                                                  Samples Percent
+------------------------------------------------------------------------------------------------------- ------- -------
+okio.Buffer.writeUtf8(String, int, int)                                                                      14   3.13%
+libc.so.6.__memset_evex_unaligned_erms()                                                                     11   2.46%
+ld-linux-x86-64.so.2.__tls_get_addr()                                                                         6   1.34%
+./usr/lib/x86_64-linux-gnu/libz.so.1.3()                                                                      5   1.12%
+libjvm.so.PhaseIdealLoop::build_loop_early()                                                                  5   1.12%
+libjvm.so.PhaseChaitin::build_ifg_physical()                                                                  4   0.89%
+java.util.Arrays.copyOf(byte[], int)                                                                          4   0.89%
+libjvm.so.InstanceKlass::find_method_index()                                                                  4   0.89%
+okio.Buffer.writeByte(int)                                                                                    4   0.89%
+java.lang.StringLatin1.charAt(byte[], int)                                                                    4   0.89%
+libjvm.so.SymbolTable::lookup_shared()                                                                        4   0.89%
+libjvm.so.LinearScan::build_intervals()                                                                       3   0.67%
+libjvm.so.LinearScan::allocate_registers()                                                                    3   0.67%
+libjvm.so.DebugInformationRecorder::find_sharable_decode_offset()                                             3   0.67%
+libjvm.so.LinearScan::assign_reg_num()                                                                        3   0.67%
+libjvm.so.PhaseCFG::sched_call()                                                                              3   0.67%
+libjvm.so.IndexSetIterator::advance_and_next()                                                                3   0.67%
+libjvm.so.resource_allocate_bytes()                                                                           3   0.67%
+libjvm.so.PhaseIdealLoop::build_loop_late()                                                                   3   0.67%
+libjvm.so.Compile::identify_useful_nodes()                                                                    3   0.67%
+libjvm.so.ciInstanceKlass::ciInstanceKlass()                                                                  3   0.67%
+libz.so.1.3.inflate()                                                                                         3   0.67%
+libjvm.so.Rewriter::scan_method()                                                                             3   0.67%
+libjvm.so.LIR_OpVisitState::visit()                                                                           3   0.67%
+libjvm.so.Type::Initialize_shared(Compile*)::{lambda(void const*, void const*)#1}::_FUN()                     3   0.67%

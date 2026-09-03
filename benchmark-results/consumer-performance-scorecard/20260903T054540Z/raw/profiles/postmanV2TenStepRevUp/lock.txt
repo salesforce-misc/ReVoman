@@ -1,0 +1,6 @@
+
+                               Contention by Site
+
+StackTrace                                            Count      Avg.      Max.
+----------------------------------------------------- ----- --------- ---------
+java.util.jar.JarFile.ensureInitialization()              1 0.0853 ms 0.0853 ms

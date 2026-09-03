@@ -1,0 +1,6 @@
+
+                               Contention by Site
+
+StackTrace                                            Count      Avg.      Max.
+----------------------------------------------------- ----- --------- ---------
+java.lang.ref.ReferenceQueue.enqueue(Reference)           1 0.0185 ms 0.0185 ms

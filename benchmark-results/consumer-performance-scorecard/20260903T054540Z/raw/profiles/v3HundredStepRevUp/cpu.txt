@@ -1,0 +1,30 @@
+
+                                           Java Methods that Execute the Most
+
+Method                                                                                                  Samples Percent
+------------------------------------------------------------------------------------------------------- ------- -------
+libc.so.6.__memset_evex_unaligned_erms()                                                                      8   1.71%
+libjvm.so.IndexSetIterator::advance_and_next()                                                                7   1.50%
+libjvm.so.PhaseChaitin::elide_copy()                                                                          5   1.07%
+libjvm.so.PhaseIdealLoop::build_loop_late()                                                                   5   1.07%
+./usr/lib/x86_64-linux-gnu/libz.so.1.3()                                                                      5   1.07%
+libjvm.so.PhaseChaitin::post_allocate_copy_removal()                                                          4   0.85%
+libc.so.6.__GI___pthread_mutex_lock()                                                                         4   0.85%
+ld-linux-x86-64.so.2.__tls_get_addr()                                                                         4   0.85%
+libjvm.so.PhaseChaitin::gather_lrg_masks()                                                                    4   0.85%
+libjvm.so.resource_allocate_bytes()                                                                           4   0.85%
+libjvm.so.LIR_OpVisitState::visit()                                                                           4   0.85%
+libjvm.so.PhaseIterGVN::subsume_node()                                                                        4   0.85%
+libjvm.so.LinearScan::compute_local_live_sets()                                                               3   0.64%
+libjvm.so.PhaseChaitin::build_ifg_physical()                                                                  3   0.64%
+libjvm.so.PhaseLive::compute()                                                                                3   0.64%
+libc.so.6.__GI___open()                                                                                       3   0.64%
+libjvm.so.MethodMatcher::matches()                                                                            3   0.64%
+java.util.Arrays.copyOf(byte[], int)                                                                          3   0.64%
+libjvm.so.Dict::Insert()                                                                                      3   0.64%
+libjvm.so.methodHandle::~methodHandle()                                                                       3   0.64%
+libjvm.so.SymbolTable::lookup_shared()                                                                        3   0.64%
+libjvm.so.ciObjectFactory::get_metadata()                                                                     2   0.43%
+libjvm.so.MethodHandles::resolve_MemberName()                                                                 2   0.43%
+libjvm.so.NullCheckEliminator::iterate_one()                                                                  2   0.43%
+libjvm.so.TypeNode::hash()                                                                                    2   0.43%

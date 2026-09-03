@@ -1,0 +1,30 @@
+
+                                           Java Methods that Execute the Most
+
+Method                                                                                                  Samples Percent
+------------------------------------------------------------------------------------------------------- ------- -------
+libjvm.so.SymbolTable::do_lookup()                                                                            6   1.54%
+libc.so.6.__memset_evex_unaligned_erms()                                                                      5   1.28%
+libjvm.so.LinearScan::allocate_registers()                                                                    4   1.03%
+libjvm.so.InstanceKlass::find_method_index()                                                                  4   1.03%
+libjvm.so.LinearScanWalker::alloc_free_reg()                                                                  4   1.03%
+libc.so.6.__memmove_evex_unaligned_erms()                                                                     4   1.03%
+libjvm.so.ciObjectFactory::get_metadata()                                                                     3   0.77%
+./usr/lib/x86_64-linux-gnu/libz.so.1.3()                                                                      3   0.77%
+libjvm.so.PhaseChaitin::interfere_with_live()                                                                 3   0.77%
+libjvm.so.PhaseIdealLoop::Dominators()                                                                        3   0.77%
+libc.so.6.__futex_abstimed_wait_cancelable64()                                                                3   0.77%
+libjvm.so.IndexSetIterator::advance_and_next()                                                                3   0.77%
+libjvm.so.Dict::Insert()                                                                                      3   0.77%
+libz.so.1.3.inflate()                                                                                         3   0.77%
+libc.so.6.__GI___libc_read()                                                                                  3   0.77%
+libjvm.so.PhaseIterGVN::transform_old()                                                                       2   0.51%
+libjvm.so.PhaseChaitin::elide_copy()                                                                          2   0.51%
+libjvm.so.Node::set_req_X()                                                                                   2   0.51%
+libc.so.6.__pthread_mutex_unlock@GLIBC_2.2.5()                                                                2   0.51%
+libjvm.so.OopMapSort::sort()                                                                                  2   0.51%
+libjvm.so.LinearScan::build_intervals()                                                                       2   0.51%
+libjvm.so.LIR_OpVisitState::append()                                                                          2   0.51%
+libc.so.6.__GI___open()                                                                                       2   0.51%
+libjvm.so.LinearScan::add_def()                                                                               2   0.51%
+libc.so.6.unlink_chunk.isra.0()                                                                               2   0.51%

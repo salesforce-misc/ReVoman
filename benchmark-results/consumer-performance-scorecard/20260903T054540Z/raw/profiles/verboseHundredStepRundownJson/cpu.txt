@@ -1,0 +1,30 @@
+
+                                           Java Methods that Execute the Most
+
+Method                                                                                                  Samples Percent
+------------------------------------------------------------------------------------------------------- ------- -------
+okio.Buffer.writeUtf8(String, int, int)                                                                      11   2.48%
+ld-linux-x86-64.so.2.__tls_get_addr()                                                                         6   1.35%
+java.lang.StringLatin1.charAt(byte[], int)                                                                    5   1.13%
+libjvm.so.resource_allocate_bytes()                                                                           5   1.13%
+libjvm.so.IntervalWalker::walk_to()                                                                           5   1.13%
+libc.so.6.__memset_evex_unaligned_erms()                                                                      5   1.13%
+libjvm.so.ciObjectFactory::get_metadata()                                                                     4   0.90%
+libjvm.so.MethodMatcher::matches()                                                                            4   0.90%
+java.util.Arrays.copyOf(byte[], int)                                                                          4   0.90%
+libjvm.so.PhaseChaitin::Split()                                                                               4   0.90%
+libz.so.1.3.inflate()                                                                                         4   0.90%
+.I2C/C2I adapters(0xbb)()                                                                                     4   0.90%
+libjvm.so.SymbolTable::do_lookup()                                                                            4   0.90%
+libjvm.so.PhaseChaitin::elide_copy()                                                                          3   0.68%
+java.lang.StringCoding.countPositives(byte[], int, int)                                                       3   0.68%
+libjvm.so.PhaseChaitin::build_ifg_physical()                                                                  3   0.68%
+libjvm.so.InstanceKlass::find_method_index()                                                                  3   0.68%
+libjvm.so.DebugInformationRecorder::find_sharable_decode_offset()                                             3   0.68%
+libjvm.so.IndexSetIterator::advance_and_next()                                                                3   0.68%
+./usr/lib/x86_64-linux-gnu/libz.so.1.3()                                                                      3   0.68%
+libjvm.so.LIR_OpVisitState::visit()                                                                           3   0.68%
+java.lang.String.length()                                                                                     3   0.68%
+libjvm.so.PhaseIFG::remove_node()                                                                             2   0.45%
+libjvm.so.PhaseIterGVN::transform_old()                                                                       2   0.45%
+libjvm.so.RelocIterator::reloc()                                                                              2   0.45%

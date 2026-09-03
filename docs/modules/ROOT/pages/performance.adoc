@@ -1,7 +1,28 @@
 = Performance
 
-This entire execution of *~75 steps*, including *10 async steps*, took a mere *122 sec* on localhost. This can be much better in auto-build environments.
+== Consumer performance scorecard
 
-image::pq-revoman-test-time.png[Localhost Test time on FTest console for ~75 steps]
+These are absolute baseline measurements of common consumer journeys, not an optimization
+comparison. Lower scores are better.
 
-WARNING: ReṼoman internally is very light-weight; execution times are proportional to how your server responds or your network speed.
+include::partial$performance-scorecard.adoc[]
+
+== Measurement context
+
+The accepted run measured ReṼoman 0.90.0 at revision `f93cccd3` on an Intel Core i7-9800X with
+Linux 6.8.0-138-generic and Amazon OpenJDK 25.0.4.1. JMH used average time in milliseconds per
+operation, one thread pinned to logical CPUs 0 through 7, five forks, ten one-second warmup
+iterations, and twenty one-second measurement iterations per fork. Each row therefore contains 100
+samples and reports a 99.9-percent error interval.
+
+Each execution journey uses deterministic in-process responses supplied through
+`Kick.httpClient(HttpHandler)`. The first six rows time one complete public `ReVoman.revUp` call.
+The rendering row times only `Rundown.toJson(Verbosity.VERBOSE)` on a prepared successful rundown.
+Fixture construction and other setup are outside the measured bodies.
+
+The figures include only in-process ReṼoman engine work. They exclude DNS resolution, sockets, TLS,
+remote-service latency, cold JVM startup, and caller work outside the measured public call.
+
+The complete manifest, environment snapshot, raw JMH CSV, and CPU, allocation, and lock profiles are
+available in the
+https://github.com/salesforce-misc/ReVoman/tree/master/benchmark-results/consumer-performance-scorecard/20260902T201823Z[accepted evidence directory].
