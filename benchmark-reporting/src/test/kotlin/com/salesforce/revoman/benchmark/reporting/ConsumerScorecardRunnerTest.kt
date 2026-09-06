@@ -8,7 +8,6 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
-import io.kotest.matchers.string.shouldStartWith
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.PrintStream
@@ -183,10 +182,9 @@ class ConsumerScorecardRunnerTest :
             .sorted()
             .toList()
         } shouldContainExactly expectedAcceptedFiles()
-        executor.commands shouldHaveSize 41
-        executor.commands.filter { command -> command.any { "-agentpath:" in it } } shouldHaveSize
-          24
-        executor.commands.filter { it.first().endsWith("/bin/jfr") } shouldHaveSize 16
+        executor.commands shouldHaveSize 57
+        executor.commands.filter(::isProfileCommand) shouldHaveSize 32
+        executor.commands.filter { it.first().endsWith("/bin/jfr") } shouldHaveSize 24
 
         val finalCommand = executor.commands.last()
         val runtimeRoot = Path.of(finalCommand[5]).parent
@@ -249,12 +247,21 @@ class ConsumerScorecardRunnerTest :
               "250ms",
               "-r",
               "250ms",
+              "-prof",
+              asyncProfilerConfiguration(firstProfile),
+              "-prof",
+              jfrProfilerConfiguration(firstProfile),
               "-jvmArgsAppend",
               firstProfile.last(),
             )
-        firstProfile.last() shouldStartWith "${expectedForkJvmArguments(runtimeRoot)} -agentpath:"
-        firstProfile.last() shouldContain "event=cpu"
-        firstProfile.last() shouldContain "loglevel=warn"
+        firstProfile.last() shouldBe expectedForkJvmArguments(runtimeRoot)
+        asyncProfilerConfiguration(firstProfile) shouldContain "event=cpu"
+        asyncProfilerConfiguration(firstProfile) shouldContain
+          "dir=${runtimeRoot.resolve("profiles/postmanV2TenStepRevUp/cpu/samples")}"
+        jfrProfilerConfiguration(firstProfile) shouldContain
+          "dir=${runtimeRoot.resolve("profiles/postmanV2TenStepRevUp/cpu/semantic")}"
+        jfrProfilerConfiguration(firstProfile) shouldContain
+          "configName=${runtimeRoot.resolve("revoman-performance.jfc")}"
 
         val manifest =
           Json.parseToJsonElement(Files.readString(accepted.resolve("manifest.json"))).jsonObject
@@ -263,7 +270,7 @@ class ConsumerScorecardRunnerTest :
         manifest.getValue("runId").jsonPrimitive.content shouldBe "20260902T010203Z"
         manifest.getValue("command").jsonArray.map { it.jsonPrimitive.content } shouldContainExactly
           finalCommand
-        manifest.getValue("profilerFacts").jsonArray shouldHaveSize 24
+        manifest.getValue("profilerFacts").jsonArray shouldHaveSize 32
         manifest.getValue("optimizationHypotheses").jsonArray shouldHaveSize 0
         manifest.getValue("raw").jsonObject.getValue("results").jsonPrimitive.content shouldBe
           "raw/results.csv"
@@ -293,7 +300,7 @@ class ConsumerScorecardRunnerTest :
         }
 
         output.toString(Charsets.UTF_8) shouldContain
-          "consumer-scorecard: profiling 24 method/event pairs"
+          "consumer-scorecard: profiling 32 method/event pairs"
       }
     }
 
@@ -302,12 +309,9 @@ class ConsumerScorecardRunnerTest :
         val delegate = RecordingBenchmarkExecutor()
         var observedProfiles = 0
         val executor = ProcessExecutor { command, workingDirectory ->
-          if (command.any { "-agentpath:" in it }) {
-            val recording =
-              Path.of(command.last().substringAfter("file=").substringBefore(",loglevel=warn"))
-            require(Files.isDirectory(recording.parent)) {
-              "Runtime profile parent must exist before the profiler child starts"
-            }
+          if (isProfileCommand(command)) {
+            require(Files.isDirectory(asyncProfilerOutputDirectory(command)))
+            require(Files.isDirectory(jfrProfilerOutputDirectory(command)))
             observedProfiles += 1
           }
           delegate.execute(command, workingDirectory)
@@ -315,7 +319,7 @@ class ConsumerScorecardRunnerTest :
 
         ConsumerScorecardRunner(fixture.host, executor).run(fixture.request)
 
-        observedProfiles shouldBe 24
+        observedProfiles shouldBe 32
       }
     }
 
@@ -875,7 +879,7 @@ internal class RecordingBenchmarkExecutor(private val failure: ExecutionFailure?
     commands += command
     return when {
       command.first().endsWith("/bin/jfr") -> summaryResult()
-      command.any { "-agentpath:" in it } -> profileResult(command)
+      isProfileCommand(command) -> profileResult(command)
       command.contains("-rff") -> {
         if (failure == ExecutionFailure.FINAL_EXIT) {
           ProcessResult(1, "", "final failed")
@@ -918,20 +922,51 @@ internal class RecordingBenchmarkExecutor(private val failure: ExecutionFailure?
       return ProcessResult(1, "", "profile failed")
     }
     if (failure != ExecutionFailure.PROFILE_MISSING) {
-      val path = Path.of(command.last().substringAfter("file=").substringBefore(",loglevel=warn"))
-      Files.createDirectories(path.parent)
-      Files.write(
-        path,
-        if (command.last().contains("event=alloc")) {
-          testAllocationRecordingBytes
-        } else {
-          byteArrayOf(1, 2, 3)
-        },
-      )
+      val event = asyncProfilerOption(command, "event")
+      val benchmarkDirectory = "fixture.Benchmark-AverageTime"
+      val sampleRecording =
+        asyncProfilerOutputDirectory(command).resolve(benchmarkDirectory).resolve("jfr-$event.jfr")
+      val semanticRecording =
+        jfrProfilerOutputDirectory(command).resolve(benchmarkDirectory).resolve("profile.jfr")
+      Files.createDirectories(sampleRecording.parent)
+      Files.createDirectories(semanticRecording.parent)
+      Files.write(sampleRecording, testProfilerRecordingBytes)
+      Files.write(semanticRecording, testSemanticRecordingBytes)
     }
     return ProcessResult(0, "profile complete\n", "")
   }
 }
+
+internal fun isProfileCommand(command: List<String>): Boolean =
+  command.windowed(2).any { (option, value) -> option == "-prof" && value.startsWith("async:") }
+
+internal fun asyncProfilerConfiguration(command: List<String>): String =
+  profilerConfiguration(command, "async:")
+
+internal fun jfrProfilerConfiguration(command: List<String>): String =
+  profilerConfiguration(command, "jfr:")
+
+internal fun asyncProfilerOption(command: List<String>, name: String): String =
+  profilerOption(asyncProfilerConfiguration(command), name)
+
+internal fun asyncProfilerOutputDirectory(command: List<String>): Path =
+  Path.of(asyncProfilerOption(command, "dir"))
+
+internal fun jfrProfilerOutputDirectory(command: List<String>): Path =
+  Path.of(profilerOption(jfrProfilerConfiguration(command), "dir"))
+
+private fun profilerConfiguration(command: List<String>, prefix: String): String =
+  command
+    .windowed(2)
+    .single { (option, value) -> option == "-prof" && value.startsWith(prefix) }
+    .last()
+
+private fun profilerOption(configuration: String, name: String): String =
+  configuration
+    .removePrefix(configuration.substringBefore(':') + ":")
+    .split(';')
+    .single { option -> option.startsWith("$name=") }
+    .substringAfter('=')
 
 private fun consumerScorecardCsv(): String =
   checkNotNull(ConsumerScorecardRunnerTest::class.java.getResource("/jmh/consumer-scorecard.csv"))
@@ -973,9 +1008,11 @@ private fun expectedAcceptedFiles(): List<String> {
         "verboseHundredStepRundownJson",
       )
       .flatMap { method ->
-        listOf("cpu", "alloc", "lock").flatMap { event ->
+        listOf("cpu", "alloc", "lock", "wall").flatMap { event ->
           listOf(
+            "raw/profiles/$method/$event-attribution.csv",
             "raw/profiles/$method/$event.jfr",
+            "raw/profiles/$method/$event-semantic.jfr",
             "raw/profiles/$method/$event.txt",
           )
         }

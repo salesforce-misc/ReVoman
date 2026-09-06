@@ -20,7 +20,9 @@ internal data class ProfilerFact(
   val event: String,
   val view: String,
   val recording: String,
+  val semanticRecording: String,
   val summary: String,
+  val attribution: String,
 )
 
 internal fun scorecardManifest(
@@ -128,7 +130,9 @@ private fun rawEvidenceJson(profilerFacts: List<ProfilerFact>): JsonObject = bui
     buildJsonArray {
       profilerFacts.forEach { fact ->
         add(fact.recording)
+        add(fact.semanticRecording)
         add(fact.summary)
+        add(fact.attribution)
       }
     },
   )
@@ -142,7 +146,9 @@ private fun profilerFactsJson(profilerFacts: List<ProfilerFact>): JsonArray = bu
         put("event", fact.event)
         put("view", fact.view)
         put("recording", fact.recording)
+        put("semanticRecording", fact.semanticRecording)
         put("summary", fact.summary)
+        put("attribution", fact.attribution)
       }
     )
   }

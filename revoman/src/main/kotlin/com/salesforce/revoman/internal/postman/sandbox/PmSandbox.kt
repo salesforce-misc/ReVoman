@@ -7,6 +7,9 @@
  */
 package com.salesforce.revoman.internal.postman.sandbox
 
+import com.salesforce.revoman.internal.perf.OperationKind
+import com.salesforce.revoman.internal.perf.RevomanPerf
+
 /**
  * The single entry point the rest of ReVoman uses to run pm scripts. Wraps a [SandboxBridge] (one
  * booted GraalJS context per ReVoman run). Construct once per run; [close] at the end.
@@ -21,7 +24,7 @@ internal class PmSandbox : AutoCloseable {
 
   private fun ensureBooted() {
     if (!booted) {
-      bridge.boot()
+      RevomanPerf.operation(OperationKind.SANDBOX_BOOT) { bridge.boot() }
       booted = true
     }
   }
@@ -38,8 +41,10 @@ internal class PmSandbox : AutoCloseable {
   }
 
   override fun close() {
-    if (booted) bridge.close()
-    closed = true
+    RevomanPerf.operation(OperationKind.SANDBOX_CLOSE) {
+      if (booted) bridge.close()
+      closed = true
+    }
   }
 
   private companion object {

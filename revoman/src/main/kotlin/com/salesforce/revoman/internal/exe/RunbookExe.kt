@@ -13,6 +13,8 @@ import com.salesforce.revoman.input.config.Runbook
 import com.salesforce.revoman.input.config.RunbookStep
 import com.salesforce.revoman.internal.log.RevomanLog
 import com.salesforce.revoman.internal.log.RunLogContext
+import com.salesforce.revoman.internal.perf.OperationKind
+import com.salesforce.revoman.internal.perf.RevomanPerf
 import com.salesforce.revoman.output.RunbookRundown
 import com.salesforce.revoman.output.Rundown
 import com.salesforce.revoman.output.log.Outcome
@@ -81,17 +83,19 @@ private fun executeStep(
   step: RunbookStep,
   acc: RunbookAcc,
 ): RunbookAcc {
-  emitStepOpen(step, acc.lastPhase)
-  val startNs = System.nanoTime()
-  val close = StepCloseGuard(step, startNs)
-  // A catch-all is intentional here: the bracket MUST be closed on EVERY throw between the open
-  // and the normal close — an AssertionError from a contract/assertAfter breach, a step-failure
-  // halt, or any error out of `revUp` — after which we rethrow verbatim (see [StepCloseGuard]).
-  try {
-    return runStepBody(runbook, runbookSink, step, acc, startNs, close)
-  } catch (t: Throwable) {
-    close.emitFailedIfOpen()
-    throw t
+  return RevomanPerf.operation(OperationKind.RUNBOOK_STEP) {
+    emitStepOpen(step, acc.lastPhase)
+    val startNs = System.nanoTime()
+    val close = StepCloseGuard(step, startNs)
+    // A catch-all is intentional here: the bracket MUST be closed on EVERY throw between the open
+    // and the normal close — an AssertionError from a contract/assertAfter breach, a step-failure
+    // halt, or any error out of `revUp` — after which we rethrow verbatim (see [StepCloseGuard]).
+    try {
+      runStepBody(runbook, runbookSink, step, acc, startNs, close)
+    } catch (t: Throwable) {
+      close.emitFailedIfOpen()
+      throw t
+    }
   }
 }
 

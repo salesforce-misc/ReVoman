@@ -113,7 +113,9 @@ class ConsumerScorecardRunnerPrivacyHardeningTest :
             arguments shouldContain "-Duser.name=revoman-scorecard"
             arguments shouldContain "-Duser.home=/tmp/revoman-consumer-scorecard-"
           }
-          forkArguments.any { arguments -> privateHome.toString() in arguments } shouldBe true
+          executor.commands.flatten().any { argument ->
+            privateHome.toString() in argument
+          } shouldBe true
           Files.readString(stagingRun(fixture).resolve("failure-summary.txt")) shouldNotContain
             privateHome.toString()
           Files.exists(acceptedRun(fixture)) shouldBe false
@@ -209,10 +211,12 @@ class ConsumerScorecardRunnerPrivacyHardeningTest :
         val delegate = RecordingBenchmarkExecutor()
         var injected = false
         val executor = ProcessExecutor { command, workingDirectory ->
-          if (!injected && command.any { "-agentpath:" in it }) {
+          if (!injected && isProfileCommand(command)) {
             injected = true
             val recording =
-              Path.of(command.last().substringAfter("file=").substringBefore(",loglevel=warn"))
+              asyncProfilerOutputDirectory(command)
+                .resolve("fixture.Benchmark-AverageTime")
+                .resolve("jfr-${asyncProfilerOption(command, "event")}.jfr")
             Files.createDirectories(recording.parent)
             val target = recording.resolveSibling("actual.jfr")
             Files.write(target, byteArrayOf(7, 8, 9))
@@ -248,16 +252,16 @@ class ConsumerScorecardRunnerPrivacyHardeningTest :
             val executor = ProcessExecutor { command, workingDirectory ->
               val isFailedChild =
                 if (child == "profile") {
-                  command.any { "-agentpath:" in it }
+                  isProfileCommand(command)
                 } else {
                   command.contains("-rff")
                 }
               if (isFailedChild) {
                 val runtimeArtifact =
                   if (child == "profile") {
-                    Path.of(
-                      command.last().substringAfter("file=").substringBefore(",loglevel=warn")
-                    )
+                    asyncProfilerOutputDirectory(command)
+                      .resolve("fixture.Benchmark-AverageTime")
+                      .resolve("jfr-${asyncProfilerOption(command, "event")}.jfr")
                   } else {
                     Path.of(command[command.indexOf("-rff") + 1])
                   }

@@ -14,6 +14,8 @@ import arrow.core.Either.Left
 import arrow.core.Either.Right
 import com.salesforce.revoman.input.config.Kick
 import com.salesforce.revoman.input.config.StepPick.ExeStepPick
+import com.salesforce.revoman.internal.perf.OperationKind
+import com.salesforce.revoman.internal.perf.RevomanPerf
 import com.salesforce.revoman.internal.postman.template.Item
 import com.salesforce.revoman.output.ExeType
 import com.salesforce.revoman.output.Rundown
@@ -156,9 +158,10 @@ internal inline fun <T> timed(
   currentStep: Step,
   exeTimings: MutableMap<ExeType, Duration>,
   exeType: ExeType,
-  block: () -> T,
+  crossinline block: () -> T,
 ): T {
-  val (result, elapsed) = measureTimedValue(block)
+  val (result, elapsed) =
+    RevomanPerf.operation(OperationKind.from(exeType)) { measureTimedValue(block) }
   exeTimings[exeType] = elapsed.toJavaDuration()
   logger.info { "$currentStep $exeType completed in $elapsed" }
   return result
