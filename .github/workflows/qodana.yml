@@ -35,6 +35,11 @@ jobs:
           distribution: jetbrains
           java-version: 25
 
+      - name: 'Expose JDK 25 to Qodana'
+        id: qodana-jdk
+        shell: bash
+        run: echo "path=$JAVA_HOME" >> "$GITHUB_OUTPUT"
+
       # Qodana's linter resolves references against generated sources (kapt/Immutables/Moshi).
       # Generate those on the runner (JDK 25 from setup-java above) rather than inside the linter
       # image — qodana-action mounts the project dir, so build/generated is visible to the linter.
@@ -43,6 +48,7 @@ jobs:
         run: ./gradlew :revoman:kaptKotlin :revoman:classes
 
       # Community linter runs in the runner's preinstalled Docker — no colima needed on CI.
+      # Docker does not inherit JAVA_HOME, so mount the setup-java JDK where Gradle discovers it.
       # QODANA_TOKEN (repo secret) reports to the free Qodana Cloud tier. Linter is set in qodana.yaml.
       - name: 'Qodana Scan'
         uses: JetBrains/qodana-action@v2026.1
@@ -50,6 +56,8 @@ jobs:
           QODANA_TOKEN: ${{ secrets.QODANA_TOKEN }}
         with:
           upload-result: true
+          args: >-
+            --volume ${{ steps.qodana-jdk.outputs.path }}:/root/.jdks/jbr-25:ro
 
       # Upload SARIF to GitHub code scanning (Security tab + inline PR annotations, free for
       # public repos). Runs even if the scan reports problems.
