@@ -1,5 +1,6 @@
 import kotlinx.benchmark.gradle.BenchmarkConfiguration
 import org.gradle.api.file.DuplicatesStrategy
+import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.jvm.tasks.Jar
 
 plugins {
@@ -22,6 +23,10 @@ tasks.processResources {
 
 val consumerScorecardExecutable =
   createConsumerScorecardExecutable(canBeConsumed = true, canBeResolved = false)
+val benchmarkMainOutput = extensions.getByType<SourceSetContainer>().named("main").get().output
+val benchmarkRuntime = configurations.getByName("runtimeClasspath")
+val mergedServicesDirectory: String =
+  layout.buildDirectory.dir("resources/main/META-INF/services").get().asFile.absolutePath
 
 benchmark {
   targets { register("main") }
@@ -50,6 +55,11 @@ afterEvaluate {
   val mainBenchmarkJar = tasks.named<Jar>("mainBenchmarkJar") {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     manifest.attributes["Multi-Release"] = "true"
+    // kotlinx-benchmark 0.5.0 drops classpath entries absent when its archive provider is realized.
+    // Contribute clean-build outputs lazily and keep the already-merged service descriptors.
+    from(benchmarkMainOutput)
+    from({ benchmarkRuntime.map { zipTree(it) } })
+    exclude(UnmergedServiceDescriptorSpec(mergedServicesDirectory))
   }
   artifacts.add(consumerScorecardExecutable.name, mainBenchmarkJar)
 }
