@@ -9,7 +9,7 @@ internal fun profileCommand(
   method: String,
   event: String,
   profilerLibrary: Path,
-  recording: Path,
+  outputDirectory: Path,
 ): List<String> =
   baseJmhCommand(preflight, affinity, workspace.benchmarkJar) +
     listOf(
@@ -30,10 +30,47 @@ internal fun profileCommand(
       "250ms",
       "-r",
       "250ms",
+      "-prof",
+      asyncProfilerConfiguration(
+        profilerLibrary,
+        outputDirectory.resolve(ASYNC_PROFILER_DIRECTORY),
+        event,
+      ),
+      "-prof",
+      jfrProfilerConfiguration(workspace, outputDirectory.resolve(JFR_PROFILER_DIRECTORY)),
       "-jvmArgsAppend",
-      "${jvmProperties(workspace)} " +
-        "-agentpath:$profilerLibrary=start,event=$event,file=$recording,loglevel=warn",
+      jvmProperties(workspace),
     )
+
+private fun asyncProfilerConfiguration(
+  profilerLibrary: Path,
+  outputDirectory: Path,
+  event: String,
+): String =
+  "async:" +
+    (listOf(
+        "libPath=$profilerLibrary",
+        "output=jfr",
+        "event=$event",
+      ) + if (event == "wall") listOf("interval=$WALL_SAMPLE_INTERVAL_NS") else emptyList())
+      .plus("dir=$outputDirectory")
+      .joinToString(";")
+
+private fun jfrProfilerConfiguration(
+  workspace: ScorecardRuntimeWorkspace,
+  outputDirectory: Path,
+): String =
+  "jfr:" +
+    listOf(
+        "dir=$outputDirectory",
+        "configName=${workspace.performanceJfrConfiguration}",
+        "debugNonSafePoints=false",
+      )
+      .joinToString(";")
+
+internal const val ASYNC_PROFILER_DIRECTORY = "samples"
+internal const val JFR_PROFILER_DIRECTORY = "semantic"
+internal const val WALL_SAMPLE_INTERVAL_NS = 10_000_000L
 
 internal fun finalCommand(
   preflight: ScorecardPreflight,

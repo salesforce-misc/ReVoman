@@ -228,52 +228,74 @@ internal class ConsumerScorecardRunner(
     val directory = attempt.stagingRun.resolve("raw/profiles").resolve(method)
     validateAttemptPaths(attempt.paths)
     Files.createDirectories(directory)
-    val recording = directory.resolve("${profile.event}.jfr")
-    val runtimeRecording = runtime.workspace.recording(method, profile.event)
-    Files.createDirectories(requireNotNull(runtimeRecording.parent))
-    val summary = directory.resolve("${profile.event}.txt")
-    val command =
-      profileCommand(
-        attempt.preflight,
-        runtime.affinity,
-        runtime.workspace,
-        method,
-        profile.event,
-        runtime.profilerLibrary,
-        runtimeRecording,
+    val paths = ProfilePaths.create(directory, runtime.workspace, method, profile.event)
+    Files.createDirectories(paths.runtimeSampleDirectory)
+    Files.createDirectories(paths.runtimeSemanticDirectory)
+    val recordings = executeProfile(processExecutor, attempt, runtime, method, profile, paths)
+    val attributionContents =
+      renderProfilerAttributionCsv(
+        createProfilerAttribution(profile.event, recordings.sample, recordings.semantic)
       )
-    validateAttemptPaths(attempt.paths)
-    val profileResult = processExecutor.execute(command, runtime.workspace.root)
-    validateAttemptPaths(attempt.paths)
-    preserveFailedRuntimeArtifact(profileResult, runtimeRecording, recording)
-    requireSuccessfulProcess(
-      profileResult,
-      "$method ${profile.event} profile",
-    )
-    require(
-      Files.isRegularFile(runtimeRecording) &&
-        Files.isReadable(runtimeRecording) &&
-        Files.size(runtimeRecording) > 0
-    ) {
-      "$method ${profile.event} profile recording is missing or empty"
+    Files.writeString(paths.attribution, attributionContents)
+    require(Files.isRegularFile(paths.attribution) && Files.size(paths.attribution) > 0) {
+      "$method ${profile.event} attribution is missing or empty"
     }
-    copyRuntimeArtifact(runtimeRecording, recording)
     validateAttemptPaths(attempt.paths)
     val summaryContents =
-      profileSummary(processExecutor, attempt, runtime, method, profile, runtimeRecording)
+      profileSummary(processExecutor, attempt, runtime, method, profile, recordings.sample)
     validateAttemptPaths(attempt.paths)
-    Files.writeString(summary, summaryContents)
-    require(Files.isRegularFile(summary) && Files.size(summary) > 0) {
+    Files.writeString(paths.summary, summaryContents)
+    require(Files.isRegularFile(paths.summary) && Files.size(paths.summary) > 0) {
       "$method ${profile.event} JFR summary is missing or empty"
     }
     return ProfilerFact(
       method,
       profile.event,
       profile.view,
-      attempt.stagingRun.relativize(recording).toString(),
-      attempt.stagingRun.relativize(summary).toString(),
+      attempt.stagingRun.relativize(paths.recording).toString(),
+      attempt.stagingRun.relativize(paths.semanticRecording).toString(),
+      attempt.stagingRun.relativize(paths.summary).toString(),
+      attempt.stagingRun.relativize(paths.attribution).toString(),
     )
   }
+}
+
+private fun executeProfile(
+  processExecutor: ProcessExecutor,
+  attempt: ScorecardAttempt,
+  runtime: ScorecardRuntime,
+  method: String,
+  profile: ProfileEvent,
+  paths: ProfilePaths,
+): RuntimeProfileRecordings {
+  val command =
+    profileCommand(
+      attempt.preflight,
+      runtime.affinity,
+      runtime.workspace,
+      method,
+      profile.event,
+      runtime.profilerLibrary,
+      paths.runtimeDirectory,
+    )
+  validateAttemptPaths(attempt.paths)
+  val result = processExecutor.execute(command, runtime.workspace.root)
+  validateAttemptPaths(attempt.paths)
+  val sample = findAsyncProfilerRecording(paths.runtimeSampleDirectory, profile.event)
+  val semantic = findJfrProfilerRecording(paths.runtimeSemanticDirectory)
+  sample?.let { preserveFailedRuntimeArtifact(result, it, paths.recording) }
+  semantic?.let { preserveFailedRuntimeArtifact(result, it, paths.semanticRecording) }
+  requireSuccessfulProcess(result, "$method ${profile.event} profile")
+
+  val requiredSample =
+    requireNotNull(sample) { "$method ${profile.event} profile recording is missing" }
+  requireRuntimeRecording(requiredSample, "$method ${profile.event} profile")
+  copyRuntimeArtifact(requiredSample, paths.recording)
+  val requiredSemantic =
+    requireNotNull(semantic) { "$method ${profile.event} semantic recording is missing" }
+  requireRuntimeRecording(requiredSemantic, "$method ${profile.event} semantic")
+  copyRuntimeArtifact(requiredSemantic, paths.semanticRecording)
+  return RuntimeProfileRecordings(requiredSample, requiredSemantic)
 }
 
 private fun isJfrViewError(line: String): Boolean =
@@ -346,13 +368,51 @@ private data class ProfileEvent(
   val view: String,
 )
 
+private data class RuntimeProfileRecordings(val sample: Path, val semantic: Path)
+
+private data class ProfilePaths(
+  val recording: Path,
+  val semanticRecording: Path,
+  val attribution: Path,
+  val summary: Path,
+  val runtimeDirectory: Path,
+) {
+  val runtimeSampleDirectory: Path = runtimeDirectory.resolve(ASYNC_PROFILER_DIRECTORY)
+  val runtimeSemanticDirectory: Path = runtimeDirectory.resolve(JFR_PROFILER_DIRECTORY)
+
+  companion object {
+    fun create(
+      outputDirectory: Path,
+      workspace: ScorecardRuntimeWorkspace,
+      method: String,
+      event: String,
+    ): ProfilePaths =
+      ProfilePaths(
+        recording = outputDirectory.resolve("$event.jfr"),
+        semanticRecording = outputDirectory.resolve("$event-semantic.jfr"),
+        attribution = outputDirectory.resolve("$event-attribution.csv"),
+        summary = outputDirectory.resolve("$event.txt"),
+        runtimeDirectory = workspace.profileDirectory(method, event),
+      )
+  }
+}
+
 private val GENERATED_REPORTS = listOf("scorecard.csv", "report.md", "performance-scorecard.adoc")
 private val PROFILE_EVENTS =
   listOf(
     ProfileEvent("cpu", "hot-methods"),
     ProfileEvent("alloc", "allocation-by-class"),
     ProfileEvent("lock", "contention-by-site"),
+    ProfileEvent("wall", "profiler.WallClockSample"),
   )
+
+private fun requireRuntimeRecording(recording: Path, description: String) {
+  require(
+    Files.isRegularFile(recording) && Files.isReadable(recording) && Files.size(recording) > 0
+  ) {
+    "$description recording is missing or empty"
+  }
+}
 
 private fun requireSuccessfulProcess(result: ProcessResult, description: String) {
   require(result.exitCode == 0) {

@@ -43,6 +43,8 @@ import com.salesforce.revoman.internal.json.MoshiReVoman.Companion.initMoshi
 import com.salesforce.revoman.internal.log.Banner
 import com.salesforce.revoman.internal.log.RevomanLog
 import com.salesforce.revoman.internal.log.RunLogContext
+import com.salesforce.revoman.internal.perf.OperationKind
+import com.salesforce.revoman.internal.perf.RevomanPerf
 import com.salesforce.revoman.internal.postman.Info
 import com.salesforce.revoman.internal.postman.PostmanSDK
 import com.salesforce.revoman.internal.postman.RegexReplacer
@@ -72,6 +74,7 @@ import com.salesforce.revoman.output.report.StepEnvVars
 import com.salesforce.revoman.output.report.StepReport
 import com.salesforce.revoman.output.report.StepReport.Companion.toVavr
 import com.salesforce.revoman.output.report.TxnInfo
+import com.salesforce.revoman.output.report.failure.RequestFailure
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapter
 import io.vavr.control.Either.left
@@ -98,20 +101,25 @@ object ReVoman {
     postExeHook: PostExeHook = PostExeHook { _, _ -> },
     dynamicEnvironment: Map<String, Any?> = emptyMap(),
   ): List<Rundown> =
-    kicks
-      .fold(dynamicEnvironment to listOf<Rundown>()) { (accumulatedMutableEnv, rundowns), kick ->
-        val rundown =
-          revUp(kick.overrideDynamicEnvironment(kick.dynamicEnvironment() + accumulatedMutableEnv))
-        val accumulatedRundowns = rundowns + rundown
-        postExeHook.accept(rundown, accumulatedRundowns)
-        // Thread the FULL env into the next kick — every value type, not just String.
-        // `immutableEnv`
-        // is an all-types snapshot (`mutableEnv.toMap()`); an earlier `<String>`-only copy silently
-        // dropped Int/POJO/List values a prior kick produced. See
-        // docs/superpowers/specs/2026-07-01-multi-kick-env-all-types-design.md
-        rundown.mutableEnv.immutableEnv to accumulatedRundowns
-      }
-      .second
+    RevomanPerf.operation(OperationKind.MULTI_KICK) {
+      kicks
+        .fold(dynamicEnvironment to listOf<Rundown>()) { (accumulatedMutableEnv, rundowns), kick ->
+          val rundown =
+            revUp(
+              kick.overrideDynamicEnvironment(kick.dynamicEnvironment() + accumulatedMutableEnv)
+            )
+          val accumulatedRundowns = rundowns + rundown
+          RevomanPerf.operation(OperationKind.POST_EXECUTION_HOOK) {
+            postExeHook.accept(rundown, accumulatedRundowns)
+          }
+          // Thread the FULL env into the next kick — every value type, not just String.
+          // `immutableEnv` is an all-types snapshot (`mutableEnv.toMap()`); an earlier
+          // `<String>`-only copy silently dropped Int/POJO/List values a prior kick produced. See
+          // docs/superpowers/specs/2026-07-01-multi-kick-env-all-types-design.md
+          rundown.mutableEnv.immutableEnv to accumulatedRundowns
+        }
+        .second
+    }
 
   /**
    * Execute a [Runbook] — the legible, narrated form of a multi-collection chain. Threads env
@@ -121,59 +129,79 @@ object ReVoman {
   @JvmStatic
   @JvmOverloads
   fun revUp(runbook: Runbook, dynamicEnvironment: Map<String, Any?> = emptyMap()): RunbookRundown =
-    executeRunbook(runbook, dynamicEnvironment)
+    RevomanPerf.operation(OperationKind.RUNBOOK) { executeRunbook(runbook, dynamicEnvironment) }
 
   @JvmStatic
   @OptIn(ExperimentalStdlibApi::class)
   fun revUp(kick: Kick): Rundown {
-    Banner.onRunStart()
-    // BORROW the sink for this run only: bind it for the call stack. Do NOT close() it — the
-    // caller OWNS the sink's lifecycle. A single caller-supplied sink commonly spans MANY revUp
-    // calls (persona-creation, general-setup, the test body, cleanup); closing it here would shut
-    // the writer after the first revUp and silently drop every later run's output.
-    return RunLogContext.where(kick.runLogSink()) {
-      val rundown = revUpInternal(kick)
-      Banner.recordSteps(rundown.stepReports.size)
-      rundown
+    return RevomanPerf.kick(kick) {
+      Banner.onRunStart()
+      // BORROW the sink for this run only: bind it for the call stack. Do NOT close() it — the
+      // caller OWNS the sink's lifecycle. A single caller-supplied sink commonly spans MANY revUp
+      // calls (persona-creation, general-setup, the test body, cleanup); closing it here would shut
+      // the writer after the first revUp and silently drop every later run's output.
+      RunLogContext.where(kick.runLogSink()) {
+        val rundown = revUpInternal(kick)
+        Banner.recordSteps(rundown.stepReports.size)
+        rundown
+      }
     }
   }
 
   @OptIn(ExperimentalStdlibApi::class)
   private fun revUpInternal(kick: Kick): Rundown {
-    val pmTemplateAdapter = Moshi.Builder().build().adapter<Template>()
+    val pmTemplateAdapter =
+      RevomanPerf.operation(OperationKind.COLLECTION_ADAPTER_PREPARE) {
+        Moshi.Builder().build().adapter<Template>()
+      }
     val itemsFromPaths: List<com.salesforce.revoman.internal.postman.template.Item> =
       kick.templatePaths().flatMap { path ->
-        if (isV3Collection(path)) {
-          load(path)
-        } else {
-          pmTemplateAdapter.fromJson(bufferFile(path))?.let { (pmSteps, authFromRoot) ->
+        val isV3 = isV3Collection(path)
+        RevomanPerf.operation(
+          if (isV3) OperationKind.COLLECTION_DECODE_V3_PATH
+          else OperationKind.COLLECTION_DECODE_V2_PATH
+        ) {
+          if (isV3) {
+            load(path)
+          } else {
+            pmTemplateAdapter.fromJson(bufferFile(path))?.let { (pmSteps, authFromRoot) ->
+              pmSteps.map { item ->
+                item.copy(request = item.request.copy(auth = item.request.auth ?: authFromRoot))
+              }
+            } ?: emptyList()
+          }
+        }
+      }
+    val itemsFromStreams: List<com.salesforce.revoman.internal.postman.template.Item> =
+      kick.templateInputStreams().flatMap { stream ->
+        RevomanPerf.operation(OperationKind.COLLECTION_DECODE_STREAM) {
+          pmTemplateAdapter.fromJson(bufferInputStream(stream))?.let { (pmSteps, authFromRoot) ->
             pmSteps.map { item ->
               item.copy(request = item.request.copy(auth = item.request.auth ?: authFromRoot))
             }
           } ?: emptyList()
         }
       }
-    val itemsFromStreams: List<com.salesforce.revoman.internal.postman.template.Item> =
-      kick.templateInputStreams().flatMap { stream ->
-        pmTemplateAdapter.fromJson(bufferInputStream(stream))?.let { (pmSteps, authFromRoot) ->
-          pmSteps.map { item ->
-            item.copy(request = item.request.copy(auth = item.request.auth ?: authFromRoot))
-          }
-        } ?: emptyList()
+    val pmStepsDeepFlattened =
+      RevomanPerf.operation(OperationKind.COLLECTION_FLATTEN) {
+        deepFlattenItems(itemsFromPaths + itemsFromStreams)
       }
-    val pmStepsDeepFlattened = deepFlattenItems(itemsFromPaths + itemsFromStreams)
     RevomanLog.info {
       val templateCount = kick.templatePaths().size
       "Total Steps from ${if (templateCount > 1) "$templateCount Collections" else "the Collection"} provided: ${pmStepsDeepFlattened.size}"
     }
     val regexReplacer =
-      RegexReplacer(kick.customDynamicVariableGenerators(), ::dynamicVariableGenerator)
+      RevomanPerf.operation(OperationKind.DYNAMIC_VARIABLE_RUNTIME_PREPARE) {
+        RegexReplacer(kick.customDynamicVariableGenerators(), ::dynamicVariableGenerator)
+      }
     val moshiReVoman =
-      initMoshi(
-        kick.globalCustomTypeAdapters(),
-        kick.customTypeAdaptersFromRequestConfig() + kick.customTypeAdaptersFromResponseConfig(),
-        kick.globalSkipTypes(),
-      )
+      RevomanPerf.operation(OperationKind.JSON_RUNTIME_PREPARE) {
+        initMoshi(
+          kick.globalCustomTypeAdapters(),
+          kick.customTypeAdaptersFromRequestConfig() + kick.customTypeAdaptersFromResponseConfig(),
+          kick.globalSkipTypes(),
+        )
+      }
     // Seed the ledger snapshot's produced-key values as the lowest-precedence FLOOR: a real warm
     // run satisfies the `ledgerSkipDecision` env-superset precondition only if the produced keys
     // are
@@ -183,36 +211,50 @@ object ReVoman {
     // no-op.
     val ledgerValues: Map<String, Any?> = kick.ledger().values
     val mergedEnv =
-      mergeEnvs(kick.environmentPaths(), kick.environmentInputStreams(), kick.dynamicEnvironment())
-    val environment = ledgerValues + mergedEnv.values
+      RevomanPerf.operation(OperationKind.ENVIRONMENT_LOAD) {
+        mergeEnvs(
+          kick.environmentPaths(),
+          kick.environmentInputStreams(),
+          kick.dynamicEnvironment(),
+        )
+      }
+    val environment =
+      RevomanPerf.operation(OperationKind.ENVIRONMENT_SEED) { ledgerValues + mergedEnv.values }
     // Persistent-backed so every per-step pmEnvSnapshot is an O(1) structural share (see E2). The
     // MutableMap contract is preserved, so PostmanSDK/RegexReplacer writes are unaffected.
     val pm =
-      PostmanSDK(
-        moshiReVoman,
-        kick.nodeModulesPath(),
-        regexReplacer,
-        PersistentBackedMutableMap(environment),
-      )
-    pm.environmentName = mergedEnv.name
+      RevomanPerf.operation(OperationKind.SDK_RUNTIME_PREPARE) {
+        PostmanSDK(
+            moshiReVoman,
+            kick.nodeModulesPath(),
+            regexReplacer,
+            PersistentBackedMutableMap(environment),
+          )
+          .also { it.environmentName = mergedEnv.name }
+      }
     val customHttpClient = kick.httpClient()
-    val httpClient = resolveHttpClient(customHttpClient, kick.insecureHttp())
+    val httpClient =
+      RevomanPerf.operation(OperationKind.HTTP_CLIENT_PREPARE) {
+        resolveHttpClient(customHttpClient, kick.insecureHttp())
+      }
     if (customHttpClient != null) {
       RevomanLog.info {
         "Using caller-supplied HttpHandler for this revUp; insecureHttp is ignored"
       }
     }
     val sequenceResult =
-      PmSandbox().use { sandbox ->
-        executeStepsSerially(
-          pmStepsDeepFlattened,
-          kick,
-          moshiReVoman,
-          regexReplacer,
-          pm,
-          sandbox,
-          httpClient,
-        )
+      RevomanPerf.operation(OperationKind.SEQUENCE_EXECUTE) {
+        PmSandbox().use { sandbox ->
+          executeStepsSerially(
+            pmStepsDeepFlattened,
+            kick,
+            moshiReVoman,
+            regexReplacer,
+            pm,
+            sandbox,
+            httpClient,
+          )
+        }
       }
     val stepNameToReport = sequenceResult.reports
     // --- LEDGER CAPTURE CONTRACT (what becomes a ledgered producer) ---
@@ -225,22 +267,25 @@ object ReVoman {
     // which fires in the OUTER kick-fold AFTER this learnedLedger is already frozen — it has no
     // single triggering step, so it is excluded rather than mis-attributed. Hook producers that
     // want to be ledgered must use `pm.environment.set(...)` from a step-qualified hook.
-    val learnedLedger =
-      stepNameToReport
-        .filter { it.envVars.produced.isNotEmpty() }
-        .associate {
-          it.step.path to LedgerEntry(it.envVars.produced, it.step.sourceHash, it.envVars.consumed)
-        }
-    return Rundown(
-      stepNameToReport,
-      pm.environment,
-      kick.haltOnFailureOfTypeExcept(),
-      pmStepsDeepFlattened.size,
-      learnedLedger,
-      pm.collectionVariables,
-      pm.globals,
-      sequenceResult.stopReason,
-    )
+    return RevomanPerf.operation(OperationKind.RUN_FINALIZE) {
+      val learnedLedger =
+        stepNameToReport
+          .filter { it.envVars.produced.isNotEmpty() }
+          .associate {
+            it.step.path to
+              LedgerEntry(it.envVars.produced, it.step.sourceHash, it.envVars.consumed)
+          }
+      Rundown(
+        stepNameToReport,
+        pm.environment,
+        kick.haltOnFailureOfTypeExcept(),
+        pmStepsDeepFlattened.size,
+        learnedLedger,
+        pm.collectionVariables,
+        pm.globals,
+        sequenceResult.stopReason,
+      )
+    }
   }
 
   /** The outcome of a full step sequence: the per-step reports and why the run terminated. */
@@ -284,20 +329,22 @@ object ReVoman {
       val iteration = iterationByPath.getOrDefault(step.path, 0)
 
       val report =
-        runStep(
-          step,
-          iteration,
-          bypassLedger,
-          progressReports,
-          pmStepsFlattened.size,
-          shadowedPaths,
-          kick,
-          moshiReVoman,
-          regexReplacer,
-          pm,
-          sandbox,
-          httpClient,
-        )
+        RevomanPerf.step(cursor, iteration, pm.environment.size, step) {
+          runStep(
+            step,
+            iteration,
+            bypassLedger,
+            progressReports,
+            pmStepsFlattened.size,
+            shadowedPaths,
+            kick,
+            moshiReVoman,
+            regexReplacer,
+            pm,
+            sandbox,
+            httpClient,
+          )
+        }
       reports += report
       progressReports += report
       iterationByPath[step.path] = iteration + 1
@@ -456,7 +503,9 @@ object ReVoman {
         collectionVariables = pm.collectionVariables,
         globals = pm.globals,
       )
-    pm.environment.putAll(regexReplacer.replaceVariablesInEnv(pm))
+    RevomanPerf.operation(OperationKind.ENVIRONMENT_REBUILD) {
+      pm.environment.putAll(regexReplacer.replaceVariablesInEnv(pm))
+    }
     // --------### PRE-REQ-JS ###--------
     // Run pre-req JS first, OUTSIDE the chain: it records `pm.execution.skipRequest()` onto the
     // SDK.
@@ -473,7 +522,9 @@ object ReVoman {
       return StepReport.requestSkipped(step, pm.environment, iteration)
     }
     return preReqResult
-      .mapLeft { preStepReport.copy(requestInfo = left(it)) }
+      .mapLeft { failure: RequestFailure.PreReqJSFailure ->
+        preStepReport.copy(requestInfo = left<RequestFailure, TxnInfo<Request>>(failure))
+      }
       .flatMap { // --------### UNMARSHALL-REQUEST ###--------
         timed(step, exeTimings, UNMARSHALL_REQUEST) {
             val pmRequest =
@@ -499,8 +550,13 @@ object ReVoman {
         pm.syncProgress(sr)
         // * NOTE 15 Mar 2025 gopala.akshintala: Replace again to accommodate variables set by
         // PRE-REQ-JS
-        val item = regexReplacer.replaceVariablesInPmItem(itemWithRegex, pm)
-        val httpRequest = item.request.toHttpRequest(moshiReVoman)
+        val httpRequest =
+          RevomanPerf.operation(OperationKind.REQUEST_BUILD) {
+            regexReplacer
+              .replaceVariablesInPmItem(itemWithRegex, pm)
+              .request
+              .toHttpRequest(moshiReVoman)
+          }
         timed(step, exeTimings, HTTP_REQUEST) {
             fireHttpRequest(step, httpRequest, httpClient, moshiReVoman)
           }

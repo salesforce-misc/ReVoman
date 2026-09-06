@@ -42,6 +42,16 @@ internal fun renderScorecardCsv(frame: DataFrame<ScorecardRowSchema>): String {
   }
 }
 
+internal fun renderProfilerAttributionCsv(frame: DataFrame<ProfilerAttributionRowSchema>): String {
+  val headers = frame.columnNames()
+  return buildString {
+    appendLine(headers.joinToString(",", transform = ::csvField))
+    frame.iterator().forEach { row ->
+      appendLine(headers.joinToString(",") { header -> csvField(row[header].toString()) })
+    }
+  }
+}
+
 internal fun renderScorecardMarkdown(frame: DataFrame<ScorecardRowSchema>): String = buildString {
   appendLine("# Consumer performance scorecard")
   appendLine()
