@@ -49,7 +49,7 @@ includeBuild("build-logic")
 enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 include(":revoman", ":benchmarks", ":benchmark-reporting")
 
-plugins { id("com.gradle.develocity") version "4.5.0" }
+plugins { id("com.gradle.develocity") version "4.5.1" }
 
 val isCI = !System.getenv("CI").isNullOrEmpty()
 
