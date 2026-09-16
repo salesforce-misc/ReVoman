@@ -1,0 +1,8 @@
+$kind: collection
+description: "Configure a product: turn a product code + quantity into a saved configuration."
+auth:
+  - id: cfg-auth
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{accessToken}}"

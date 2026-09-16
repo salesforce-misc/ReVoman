@@ -1,0 +1,11 @@
+graph: quote
+slots:
+  priceId: { type: string }
+exampleQueries:
+  - "create a draft quote for prc-2"
+  - "turn this price into a quote"
+  - "draft a quote"
+inputExamples:
+  - { priceId: "prc-2" }
+whenNotToUse:
+  - "Do not use to price a configuration — that is the price graph."

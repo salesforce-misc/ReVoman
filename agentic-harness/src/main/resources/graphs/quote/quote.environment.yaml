@@ -1,0 +1,8 @@
+name: quote
+values:
+  - key: baseUrl
+    value: "http://127.0.0.1:0"
+  - key: accessToken
+    value: "local-dev-token"
+  - key: priceId
+    value: ""
