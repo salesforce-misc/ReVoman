@@ -1,0 +1,12 @@
+# Labeled utterance -> expected graph. The single deliberate near-miss is the last case:
+# "quote me a price for this config" is really a PRICE request, but the word "quote" lures a
+# naive router to the quote graph. Stage 3's calibration loop fixes exactly this with a
+# when_not_to_use clause. Keep this file human-editable — Stage 4's flywheel appends to it.
+cases:
+  - { utterance: "configure 2 units of SKU-1", expected: configure }
+  - { utterance: "set up a new product configuration", expected: configure }
+  - { utterance: "what does this configuration cost", expected: price }
+  - { utterance: "compute the total for my config", expected: price }
+  - { utterance: "create a draft quote for prc-2", expected: quote }
+  - { utterance: "draft a quote from prc-2", expected: quote }
+  - { utterance: "quote me a price for this config", expected: price }

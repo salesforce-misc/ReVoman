@@ -1,0 +1,17 @@
+$kind: http-request
+url: "{{baseUrl}}/quote"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {"priceId":"{{priceId}}"}
+scripts:
+  - type: afterResponse
+    code: |-
+      var res = pm.response.json()
+      pm.environment.set("quoteId", res.quoteId)
+      pm.environment.set("quoteStatus", res.status)
+    language: text/javascript
+order: 1000
