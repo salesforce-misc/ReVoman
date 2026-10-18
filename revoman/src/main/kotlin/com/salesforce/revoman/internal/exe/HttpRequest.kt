@@ -19,6 +19,7 @@ import org.apache.hc.client5.http.impl.classic.CloseableHttpClient
 import org.apache.hc.client5.http.impl.classic.HttpClientBuilder
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder
 import org.apache.hc.client5.http.ssl.ClientTlsStrategyBuilder
+import org.apache.hc.client5.http.ssl.HostnameVerificationPolicy
 import org.apache.hc.client5.http.ssl.NoopHostnameVerifier
 import org.apache.hc.core5.ssl.SSLContextBuilder
 import org.http4k.client.ApacheClient
@@ -95,6 +96,7 @@ private fun insecureApacheHttpClient(): CloseableHttpClient =
             .setTlsSocketStrategy(
               ClientTlsStrategyBuilder.create()
                 .setSslContext(sslContext)
+                .setHostVerificationPolicy(HostnameVerificationPolicy.CLIENT)
                 .setHostnameVerifier(NoopHostnameVerifier.INSTANCE)
                 .buildClassic()
             )
