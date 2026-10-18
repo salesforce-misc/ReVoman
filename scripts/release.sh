@@ -24,10 +24,11 @@
 #   - must be on the `master` branch.
 #   - the target version must NOT already exist on Maven Central.
 #
-# NOTE on GPG: revoman has commit.gpgsign=true. Detached runs need the GPG
-# passphrase already cached in gpg-agent, otherwise the commit step blocks on a
-# pinentry prompt that nohup can't answer. Cache it once before launching, e.g.
-# by making any signed commit interactively earlier in the session.
+# NOTE on commit signing: revoman has commit.gpgsign=true (SSH or GPG key, per
+# gpg.format). Detached runs need the key already unlocked in its agent
+# (`ssh-add <key>` for SSH; a prior interactive signed commit for gpg-agent),
+# otherwise the commit step blocks on a passphrase prompt that nohup can't answer.
+# Artifact signing for Maven Central is separate and MUST use an OpenPGP key.
 
 set -euo pipefail
 

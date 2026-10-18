@@ -94,7 +94,7 @@ nohup scripts/release.sh 0.9.16 > /tmp/revoman-release-0.9.16.log 2>&1 &
 
 It performs, in order: bump both version files → commit `Release <version>` → push `master` → publish to Maven Central → *wait* until the jar is live on repo1.maven.org → bump the dependency version in Core via `graph-tool` → commit + push Core. It guards up front (clean tree, on `master`, version not already on Central) so it never releases from a messy state.
 
-NOTE: The script commits with GPG signing (`commit.gpgsign=true`). For a detached (`nohup`) run, cache the GPG passphrase in `gpg-agent` first (make any signed commit interactively earlier in the session), else the commit step blocks on a pinentry prompt `nohup` can't answer.
+NOTE: The script makes a signed commit (`commit.gpgsign=true`). Git can sign commits with an SSH key (`gpg.format=ssh`, `user.signingkey=<path-to-ssh-key>`) or a GPG key — either works. For a detached (`nohup`) run, load the key into its agent first (`ssh-add <key>` for SSH; for GPG, make any signed commit interactively to cache the passphrase in `gpg-agent`), else the commit step blocks on a passphrase prompt `nohup` can't answer.
 
 === Prerequisites (one-time, in `~/.gradle/gradle.properties`)
 
@@ -106,7 +106,7 @@ sonatypeUsername=<your-username>
 sonatypePassword=<your-password>
 ----
 
-Every artifact is *GPG-signed* — Sonatype rejects the `closeAndRelease` step otherwise — so signing keys are ALSO required, else the publish fails at the `signRevomanPublication` task:
+Every artifact is *OpenPGP-signed* — Sonatype rejects the `closeAndRelease` step otherwise — so signing keys are ALSO required, else the publish fails at the `signRevomanPublication` task:
 
 [source,bash]
 ----
@@ -114,6 +114,8 @@ signing.keyId=<last-8-chars-of-your-gpg-key-id>
 signing.password=<your-gpg-key-password>
 signing.secretKeyRingFile=<absolute-path-to-your-secring.gpg>
 ----
+
+IMPORTANT: Artifact signing *must* use an OpenPGP (GPG) key. Maven Central only validates `.asc` OpenPGP signatures (Sigstore is accepted only as an optional extra); SSH signatures are not accepted — SSH signing applies to Git commits only. The public key must also be published to a keyserver (e.g. `gpg --keyserver keyserver.ubuntu.com --send-keys <key-id>`).
 
 TIP: Modern GnuPG (2.1+) stores keys in `~/.gnupg/pubring.kbx`, not the legacy `secring.gpg` the plugin expects. Export one with `gpg --export-secret-keys --output <path>/secring.gpg`.
 
