@@ -1,0 +1,12 @@
+graph: price
+slots:
+  configId: { type: string }
+exampleQueries:
+  - "price configuration cfg-1"
+  - "what does this configuration cost"
+  - "compute the total for my config"
+inputExamples:
+  - { configId: "cfg-1" }
+whenNotToUse:
+  - "Do not use to build a configuration from a product — that is the configure graph."
+  - "Do not use to create a draft quote — that is the quote graph."

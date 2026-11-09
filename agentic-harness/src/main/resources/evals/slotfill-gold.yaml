@@ -1,0 +1,10 @@
+cases:
+  - utterance: "configure 2 units of SKU-1"
+    graph: configure
+    slots: { productCode: "SKU-1", quantity: "2" }
+  - utterance: "price configuration cfg-1"
+    graph: price
+    slots: { configId: "cfg-1" }
+  - utterance: "create a draft quote for prc-2"
+    graph: quote
+    slots: { priceId: "prc-2" }

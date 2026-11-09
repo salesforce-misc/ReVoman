@@ -1,0 +1,17 @@
+$kind: http-request
+url: "{{baseUrl}}/price"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {"configId":"{{configId}}"}
+scripts:
+  - type: afterResponse
+    code: |-
+      var res = pm.response.json()
+      pm.environment.set("priceId", res.priceId)
+      pm.environment.set("total", res.total)
+    language: text/javascript
+order: 1000
